@@ -70,9 +70,11 @@ namespace EasySign.Cli
 
         static void Main(string[] args)
         {
-            Bundle = new(args[1]);
+            Bundle = new(Path.GetFullPath(args[1]));
 
             if (args[0] == "add") Add();
+            else if (args[0] == "verify") Verify();
+            else AnsiConsole.MarkupLine("[red]No valid command is supplied[/]");
         }
 
         static void Add()
@@ -104,6 +106,82 @@ namespace EasySign.Cli
 
                     ctx.Status("[yellow]Creating Bundle[/]");
                     Bundle.Update();
+                });
+        }
+
+        static void Verify()
+        {
+            AnsiConsole.Status()
+                .AutoRefresh(true)
+                .Spinner(Spinner.Known.Default)
+                .Start("[yellow]Verifying Signature[/]", ctx =>
+                {
+                    Bundle.Load();
+
+                    int verifiedCerts = 0;
+                    int divider = 0;
+
+                    foreach (var cert in Bundle.Signatures.Entries.Keys)
+                    {
+                        if (divider++ > 0) AnsiConsole.WriteLine();
+
+                        var certificate = Bundle.GetCertificate(cert);
+                        AnsiConsole.MarkupLine($"Verifying Certificate [{Color.Teal}]{certificate.GetNameInfo(X509NameType.SimpleName, false)}[/] Issued by [{Color.Aqua}]{certificate.GetNameInfo(X509NameType.SimpleName, true)}[/]");
+
+                        var verifyCert = Bundle.VerifyCertificate(cert);
+                        AnsiConsole.MarkupLine($"[{(verifyCert ? Color.Green : Color.Red)}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
+                        if (!verifyCert) continue;
+
+                        var verifySign = Bundle.VerifySignature(cert);
+                        AnsiConsole.MarkupLine($"[{(verifySign ? Color.Green : Color.Red)}] Signature Verification {(verifySign ? "Successful" : "Failed")}[/]");
+                        if (!verifySign) continue;
+
+                        verifiedCerts++;
+                    }
+
+                    if (verifiedCerts == 0)
+                    {
+                        AnsiConsole.MarkupLine($"[red]Verification failed[/]");
+                        return;
+                    }
+
+                    AnsiConsole.WriteLine();
+
+                    if (verifiedCerts == Bundle.Signatures.Entries.Count)
+                    {
+                        AnsiConsole.MarkupLine($"[{Color.Green3}]All Certificates were verified[/]");
+                    }
+                    else
+                    {
+                        AnsiConsole.MarkupLine($"[{Color.Yellow}]{verifiedCerts} out of {Bundle.Signatures.Entries.Count} Certificates were verified[/]");
+                    }
+                    
+                    AnsiConsole.WriteLine();
+
+                    ctx.Status("[yellow]Verifying Files[/]");
+
+                    bool p2Verified = true;
+
+                    Parallel.ForEach(Bundle.Manifest.Entries, (entry) =>
+                    {
+                        var verifyFile = Bundle.VerifyFile(entry.Key);
+                        AnsiConsole.MarkupLine($"[{(verifyFile ? Color.MediumSpringGreen : Color.OrangeRed1)}]{entry.Key}[/]");
+
+                        if (!verifyFile)
+                        {
+                            p2Verified = false;
+                        }
+                    });
+
+                    AnsiConsole.WriteLine();
+
+                    if (!p2Verified)
+                    {
+                        AnsiConsole.MarkupLine($"[red]Some files were tampered with and file verification is failed[/]");
+                        return;
+                    }
+
+                    AnsiConsole.MarkupLine("[green]Bundle Verification Completed Successfully[/]");
                 });
         }
 
