@@ -15,7 +15,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EasySign.Cli", "EasySign.Cl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CertVerifier", "CertVerifier\CertVerifier.csproj", "{F217061F-BA90-4057-A4E1-E639FA860E13}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CertUI", "CertUI\CertUI.csproj", "{B2340E3C-5E3E-44B6-B69A-6EC244BB3B30}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CertUI", "CertUI\CertUI.csproj", "{B2340E3C-5E3E-44B6-B69A-6EC244BB3B30}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logger", "Logger\Logger.csproj", "{07D71C55-DDAE-4602-9A08-63BB77931B2D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileEnumerator", "FileEnumerator\FileEnumerator.csproj", "{F9FB9265-BB02-4D88-8133-6E5BEAC947A9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +55,14 @@ Global
 		{B2340E3C-5E3E-44B6-B69A-6EC244BB3B30}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2340E3C-5E3E-44B6-B69A-6EC244BB3B30}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B2340E3C-5E3E-44B6-B69A-6EC244BB3B30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07D71C55-DDAE-4602-9A08-63BB77931B2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07D71C55-DDAE-4602-9A08-63BB77931B2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07D71C55-DDAE-4602-9A08-63BB77931B2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07D71C55-DDAE-4602-9A08-63BB77931B2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9FB9265-BB02-4D88-8133-6E5BEAC947A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9FB9265-BB02-4D88-8133-6E5BEAC947A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9FB9265-BB02-4D88-8133-6E5BEAC947A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9FB9265-BB02-4D88-8133-6E5BEAC947A9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
