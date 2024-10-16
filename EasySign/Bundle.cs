@@ -74,7 +74,8 @@ namespace EasySign
 
         public void Load()
         {
-            ReadBundle(GetZipArchive());
+            using var zip = GetZipArchive();
+            ReadBundle(zip);
         }
 
         public void Load(byte[] bundleContent)
@@ -82,7 +83,8 @@ namespace EasySign
             ReadOnly = true;
             rawZipContents = bundleContent;
 
-            ReadBundle(GetZipArchive());
+            using var zip = GetZipArchive();
+            ReadBundle(zip);
         }
 
         private void ReadBundle(ZipArchive zip)
@@ -132,8 +134,8 @@ namespace EasySign
             pemBuilder.AppendLine("-----END CERTIFICATE-----");
             string pemContents = pemBuilder.ToString();
 
-            Signatures.Entries[name] = signature;
             newEmbeddedFiles[name] = Encoding.UTF8.GetBytes(pemContents);
+            Signatures.Entries[name] = signature;
         }
 
         public bool VerifyFile(string entryName)
@@ -142,12 +144,14 @@ namespace EasySign
 
             if (Manifest.BundleFiles)
             {
-                hash = ComputeSHA512Hash(ReadEntry(GetZipArchive(), entryName));
+                using var zip = GetZipArchive();
+                hash = ComputeSHA512Hash(ReadEntry(zip, entryName));
             }
             else
             {
                 string path = Path.GetFullPath(entryName, RootPath);
-                hash = ComputeSHA512Hash(File.OpenRead(path));
+                using var file = File.OpenRead(path);
+                hash = ComputeSHA512Hash(file);
             }
 
             return Manifest.GetConcurrentDictionary()[entryName].SequenceEqual(hash);
@@ -179,11 +183,26 @@ namespace EasySign
         {
             if (!certCache.TryGetValue(certificateHash, out X509Certificate2 certificate))
             {
-                var certData = ReadEntry(GetZipArchive(), certificateHash);
+                using var zip = GetZipArchive();
+                var certData = ReadEntry(zip, certificateHash);
                 certCache[certificateHash] = certificate = new X509Certificate2(certData);
             }
 
             return certificate;
+        }
+
+        public Stream GetFileStream(string entryName)
+        {
+            if (Manifest.BundleFiles)
+            {
+                using var zip = GetZipArchive();
+                return zip.GetEntry(entryName).Open();
+            }
+            else
+            {
+                string path = Path.GetFullPath(entryName, RootPath);
+                return File.OpenRead(path);
+            }
         }
 
         public byte[] ExportManifest()
@@ -216,8 +235,8 @@ namespace EasySign
         {
             var entry = zip.GetEntry(entryName);
 
-            var stream = entry.Open();
-            var ms = new MemoryStream();
+            using var stream = entry.Open();
+            using var ms = new MemoryStream();
             stream.CopyTo(ms);
             return ms.ToArray();
         }
@@ -226,15 +245,11 @@ namespace EasySign
         {
             ZipArchiveEntry entry = zip.GetEntry(entryName);
             
-            if (entry == null)
-            {
-                entry = zip.CreateEntry(entryName, CompressionLevel.SmallestSize);
-            }
+            entry ??= zip.CreateEntry(entryName, CompressionLevel.SmallestSize);
 
-            var stream = entry.Open();
+            using var stream = entry.Open();
             stream.Write(data, 0, data.Length);
             stream.Flush();
-            stream.Close();
         }
 
         public static byte[] ComputeSHA512Hash(Stream stream)
