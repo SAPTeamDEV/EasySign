@@ -90,17 +90,15 @@ namespace EasySign
 
         private void ReadBundle(ZipArchive zip)
         {
-            foreach (ZipArchiveEntry entry in zip.Entries)
+            ZipArchiveEntry entry;
+            if ((entry = zip.GetEntry(".manifest.ec")) != null)
             {
-                if (entry.Name == ".manifest.ec")
-                {
-                    Manifest = JsonSerializer.Deserialize<Manifest>(entry.Open(), options);
-                }
+                Manifest = JsonSerializer.Deserialize<Manifest>(entry.Open(), options);
+            }
 
-                if (entry.Name == ".signatures.ec")
-                {
-                    Signatures = JsonSerializer.Deserialize<Signature>(entry.Open(), options);
-                }
+            if ((entry = zip.GetEntry(".signatures.ec")) != null)
+            {
+                Signatures = JsonSerializer.Deserialize<Signature>(entry.Open(), options);
             }
         }
 
