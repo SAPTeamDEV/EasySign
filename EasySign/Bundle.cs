@@ -48,7 +48,7 @@ namespace EasySign
 
         public Bundle(string rootPath)
         {
-            RootPath = rootPath;
+            RootPath = Path.GetFullPath(rootPath);
         }
 
         public ZipArchive GetZipArchive(ZipArchiveMode mode = ZipArchiveMode.Read)
@@ -260,9 +260,13 @@ namespace EasySign
 
         private static void WriteEntry(ZipArchive zip, string entryName, byte[] data)
         {
-            ZipArchiveEntry entry = zip.GetEntry(entryName);
-            
-            entry ??= zip.CreateEntry(entryName, CompressionLevel.SmallestSize);
+            ZipArchiveEntry tempEntry;
+            if ((tempEntry = zip.GetEntry(entryName)) != null)
+            {
+                tempEntry.Delete();
+            }
+
+            ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.SmallestSize);
 
             using var stream = entry.Open();
             stream.Write(data, 0, data.Length);
