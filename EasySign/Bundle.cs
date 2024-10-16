@@ -103,8 +103,9 @@ namespace EasySign
 
         public void AddEntry(string path)
         {
+            using var file = File.OpenRead(path);
             string name;
-            var hash = ComputeSHA512Hash(File.OpenRead(path));
+            var hash = ComputeSHA512Hash(file);
 
             if (Manifest.BundleFiles)
             {
