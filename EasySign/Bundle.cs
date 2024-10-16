@@ -218,16 +218,20 @@ namespace EasySign
             }
         }
 
+        private byte[] Export(object structuredData)
+        {
+            var data = JsonSerializer.Serialize(structuredData, options);
+            return Encoding.UTF8.GetBytes(data);
+        }
+
         public byte[] ExportManifest()
         {
-            var data = JsonSerializer.Serialize(Manifest, options);
-            return Encoding.UTF8.GetBytes(data);
+            return Export(Manifest);
         }
 
         public byte[] ExportSignature()
         {
-            var data = JsonSerializer.Serialize(Signatures, options);
-            return Encoding.UTF8.GetBytes(data);
+            return Export(Signatures);
         }
 
         public void Update()
