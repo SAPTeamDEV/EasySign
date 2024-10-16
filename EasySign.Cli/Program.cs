@@ -85,7 +85,7 @@ namespace EasySign.Cli
                     Parallel.ForEach(SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
                     {
                         Bundle.AddEntry(file);
-                        AnsiConsole.MarkupLine($"[blue]Added:[/] {file}");
+                        AnsiConsole.MarkupLine($"[blue]Added:[/] {Path.GetRelativePath(Bundle.RootPath, file)}");
                     });
 
                     ctx.Status("[yellow]Signing[/]");
