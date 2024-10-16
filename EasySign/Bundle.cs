@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
@@ -205,6 +206,20 @@ namespace EasySign
             }
         }
 
+        public byte[] GetFileBytes(string entryName)
+        {
+            if (Manifest.BundleFiles)
+            {
+                using var zip = GetZipArchive();
+                return ReadEntry(zip, entryName);
+            }
+            else
+            {
+                string path = Path.GetFullPath(entryName, RootPath);
+                return ReadStream(File.OpenRead(path));
+            }
+        }
+
         public byte[] ExportManifest()
         {
             var data = JsonSerializer.Serialize(Manifest, options);
@@ -233,10 +248,14 @@ namespace EasySign
 
         private static byte[] ReadEntry(ZipArchive zip, string entryName)
         {
-            var entry = zip.GetEntry(entryName);
+            using var stream = zip.GetEntry(entryName).Open();
 
-            using var stream = entry.Open();
-            using var ms = new MemoryStream();
+            return ReadStream(stream);
+        }
+
+        private static byte[] ReadStream(Stream stream)
+        {
+            MemoryStream ms = new();
             stream.CopyTo(ms);
             return ms.ToArray();
         }
