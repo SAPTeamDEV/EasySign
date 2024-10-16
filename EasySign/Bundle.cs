@@ -119,9 +119,9 @@ namespace EasySign
             Manifest.GetConcurrentDictionary()[name] = hash;
         }
 
-        public void SignBundle(X509Certificate2 certificate)
+        public void SignBundle(X509Certificate2 certificate, RSA privateKey)
         {
-            var signature = certificate.GetRSAPrivateKey().SignData(ExportManifest(), HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+            var signature = privateKey.SignData(ExportManifest(), HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
             var cert = Convert.ToBase64String(certificate.Export(X509ContentType.Cert));
             var name = certificate.GetCertHashString();
 
