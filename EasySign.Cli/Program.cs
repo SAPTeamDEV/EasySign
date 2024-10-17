@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.CommandLine;
 using System.IO;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -12,13 +13,70 @@ namespace EasySign.Cli
     {
         public static Bundle Bundle { get; set; }
 
-        static void Main(string[] args)
+        static RootCommand GetCommands()
         {
-            Bundle = new(args[1]);
+            var root = new RootCommand("Easy Digital Signing Tool");
 
-            if (args[0] == "add") Add();
-            else if (args[0] == "verify") Verify();
-            else AnsiConsole.MarkupLine("[red]No valid command is supplied[/]");
+            #region Shared Options
+            var directoryArg = new Argument<string>("directory", "Working directory");
+
+            var fileOpt = new Option<string>("-f", () => Bundle.DefaultBundleName, "Bundle file name");
+            #endregion
+
+            var addCmd = new Command("add", "Create new bundle or update an existing one")
+            {
+                directoryArg,
+                fileOpt,
+            };
+
+            addCmd.SetHandler((workingDir, bundleName) =>
+            {
+                InitBundle(workingDir, bundleName);
+                Add();
+            }, directoryArg, fileOpt);
+
+            root.AddCommand(addCmd);
+
+            var signCmd = new Command("sign", "Sign bundle with certificate")
+            {
+                directoryArg,
+                fileOpt,
+            };
+
+            signCmd.SetHandler((workingDir, bundleName) =>
+            {
+                InitBundle(workingDir, bundleName);
+                Sign();
+            }, directoryArg, fileOpt);
+
+            root.AddCommand(signCmd);
+
+            var verifyCmd = new Command("verify", "Verify bundle")
+            {
+                directoryArg,
+                fileOpt,
+            };
+
+            verifyCmd.SetHandler((workingDir, bundleName) =>
+            {
+                InitBundle(workingDir, bundleName);
+                Verify();
+            }, directoryArg, fileOpt);
+
+            root.AddCommand(verifyCmd);
+
+            return root;
+        }
+
+        static int Main(string[] args)
+        {
+            var root = GetCommands();
+            return root.Invoke(args);
+        }
+
+        static void InitBundle(string workingDirectory, string bundleName)
+        {
+            Bundle = new(workingDirectory, bundleName);
         }
 
         static void Add()
@@ -28,6 +86,8 @@ namespace EasySign.Cli
                 .Spinner(Spinner.Known.Default)
                 .Start("[yellow]Indexing Files[/]", ctx =>
                 {
+                    Bundle.Load(false);
+
                     Parallel.ForEach(SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
                     {
                         if (file == Bundle.BundlePath) return;
@@ -35,7 +95,19 @@ namespace EasySign.Cli
                         AnsiConsole.MarkupLine($"[blue]Added:[/] {Path.GetRelativePath(Bundle.RootPath, file)}");
                     });
 
-                    ctx.Status("[yellow]Signing[/]");
+                    ctx.Status("[yellow]Saving Bundle[/]");
+                    Bundle.Update();
+                });
+        }
+
+        static void Sign()
+        {
+            AnsiConsole.Status()
+                .AutoRefresh(true)
+                .Spinner(Spinner.Known.Default)
+                .Start("[yellow]Signing[/]", ctx =>
+                {
+                    Bundle.Load(false);
 
                     X509Store store = new X509Store("MY", StoreLocation.CurrentUser);
                     store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
@@ -49,7 +121,7 @@ namespace EasySign.Cli
                         AnsiConsole.MarkupLine($"[green]Signed by:[/] {cert.GetNameInfo(X509NameType.SimpleName, false)}");
                     }
 
-                    ctx.Status("[yellow]Creating Bundle[/]");
+                    ctx.Status("[yellow]Updating Bundle[/]");
                     Bundle.Update();
                 });
         }
