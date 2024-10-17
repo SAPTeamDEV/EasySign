@@ -179,9 +179,7 @@ namespace EasySign.Cli
 
                         AnsiConsole.Write(grid);
                         AnsiConsole.WriteLine();
-
-                        var verifyCert = cert.Verify();
-                        AnsiConsole.MarkupLine($"[{(verifyCert ? Color.Green : Color.Red)}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
+                        bool verifyCert = VerifyCertificate(cert);
                         if (!verifyCert) continue;
 
                         var prvKey = cert.GetRSAPrivateKey();
@@ -200,12 +198,17 @@ namespace EasySign.Cli
                 });
         }
 
+        private static bool VerifyCertificate(X509Certificate2 certificate)
+        {
+            var verifyCert = Bundle.VerifyCertificate(certificate);
+            AnsiConsole.MarkupLine($"[{(verifyCert ? Color.Green : Color.Red)}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
+            return verifyCert;
+        }
+
         static void Verify()
         {
             var colorDict = new Dictionary<string, Color>()
             {
-                ["cert_verified"] = Color.Green,
-                ["cert_failed"] = Color.Red,
                 ["file_verified"] = Color.MediumSpringGreen,
                 ["file_failed"] = Color.OrangeRed1,
                 ["file_missing"] = Color.Grey70,
@@ -229,12 +232,11 @@ namespace EasySign.Cli
                         var certificate = Bundle.GetCertificate(cert);
                         AnsiConsole.MarkupLine($"Verifying Certificate [{Color.Teal}]{certificate.GetNameInfo(X509NameType.SimpleName, false)}[/] Issued by [{Color.Aqua}]{certificate.GetNameInfo(X509NameType.SimpleName, true)}[/]");
 
-                        var verifyCert = Bundle.VerifyCertificate(cert);
-                        AnsiConsole.MarkupLine($"[{(verifyCert ? colorDict["cert_verified"] : colorDict["cert_failed"])}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
+                        var verifyCert = VerifyCertificate(certificate);
                         if (!verifyCert) continue;
 
                         var verifySign = Bundle.VerifySignature(cert);
-                        AnsiConsole.MarkupLine($"[{(verifySign ? colorDict["cert_verified"] : colorDict["cert_failed"])}] Signature Verification {(verifySign ? "Successful" : "Failed")}[/]");
+                        AnsiConsole.MarkupLine($"[{(verifySign ? Color.Green : Color.Red)}] Signature Verification {(verifySign ? "Successful" : "Failed")}[/]");
                         if (!verifySign) continue;
 
                         verifiedCerts++;

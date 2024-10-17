@@ -184,6 +184,11 @@ namespace EasySign
         {
             X509Certificate2 certificate = GetCertificate(certificateHash);
 
+            return VerifyCertificate(certificate, policy);
+        }
+
+        public bool VerifyCertificate(X509Certificate2 certificate, X509ChainPolicy policy = null)
+        {
             X509Chain chain = new X509Chain
             {
                 ChainPolicy = policy ?? new()
