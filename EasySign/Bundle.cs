@@ -32,6 +32,8 @@ namespace EasySign
         readonly Dictionary<string, X509Certificate2> certCache = new();
 
         readonly ConcurrentDictionary<string, byte[]> newEmbeddedFiles = new();
+        
+        readonly ConcurrentDictionary<string, byte[]> fileCache = new();
 
         readonly JsonSerializerOptions options = new JsonSerializerOptions()
         {
@@ -51,13 +53,21 @@ namespace EasySign
             RootPath = Path.GetFullPath(rootPath);
         }
 
+        void ThrowIfReadOnly()
+        {
+            if (ReadOnly)
+            {
+                throw new InvalidOperationException("Bundle is read-only");
+            }
+        }
+
         public ZipArchive GetZipArchive(ZipArchiveMode mode = ZipArchiveMode.Read)
         {
             ZipArchive archive;
 
-            if (ReadOnly && mode != ZipArchiveMode.Read)
+            if (mode != ZipArchiveMode.Read)
             {
-                throw new InvalidOperationException("Bundle is read-only");
+                ThrowIfReadOnly();
             }
 
             if (rawZipContents != null && rawZipContents.Length > 0)
@@ -73,8 +83,9 @@ namespace EasySign
             return archive;
         }
 
-        public void Load()
+        public void Load(bool readOnly = true)
         {
+            ReadOnly = readOnly;
             using var zip = GetZipArchive();
             ReadBundle(zip);
         }
@@ -104,6 +115,8 @@ namespace EasySign
 
         public void AddEntry(string path)
         {
+            ThrowIfReadOnly();
+
             using var file = File.OpenRead(path);
             string name;
             var hash = ComputeSHA512Hash(file);
@@ -123,6 +136,8 @@ namespace EasySign
 
         public void SignBundle(X509Certificate2 certificate, RSA privateKey)
         {
+            ThrowIfReadOnly();
+
             var signature = privateKey.SignData(ExportManifest(), HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
             var cert = Convert.ToBase64String(certificate.Export(X509ContentType.Cert));
             var name = certificate.GetCertHashString();
@@ -236,6 +251,8 @@ namespace EasySign
 
         public void Update()
         {
+            ThrowIfReadOnly();
+
             using (ZipArchive zip = GetZipArchive(ZipArchiveMode.Update))
             {
                 WriteEntry(zip, ".manifest.ec", ExportManifest());
@@ -248,11 +265,20 @@ namespace EasySign
             }
         }
 
-        private static byte[] ReadEntry(ZipArchive zip, string entryName)
+        private byte[] ReadEntry(ZipArchive zip, string entryName)
         {
-            using var stream = zip.GetEntry(entryName).Open();
+            if (!fileCache.TryGetValue(entryName, out var data))
+            {
+                using var stream = zip.GetEntry(entryName).Open();
+                data = ReadStream(stream);
 
-            return ReadStream(stream);
+                if (ReadOnly)
+                {
+                    fileCache[entryName] = data;
+                }
+            }
+            
+            return data;
         }
 
         private static byte[] ReadStream(Stream stream)
@@ -262,7 +288,7 @@ namespace EasySign
             return ms.ToArray();
         }
 
-        private static void WriteEntry(ZipArchive zip, string entryName, byte[] data)
+        private void WriteEntry(ZipArchive zip, string entryName, byte[] data)
         {
             ZipArchiveEntry tempEntry;
             if ((tempEntry = zip.GetEntry(entryName)) != null)
