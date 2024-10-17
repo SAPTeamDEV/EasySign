@@ -56,6 +56,16 @@ namespace EasySign.Cli
 
         static void Verify()
         {
+            var colorDict = new Dictionary<string, Color>()
+            {
+                ["cert_verified"] = Color.Green,
+                ["cert_failed"] = Color.Red,
+                ["file_verified"] = Color.MediumSpringGreen,
+                ["file_failed"] = Color.OrangeRed1,
+                ["file_missing"] = Color.Grey70,
+                ["file_error"] = Color.Red3_1,
+            };
+
             AnsiConsole.Status()
                 .AutoRefresh(true)
                 .Spinner(Spinner.Known.Default)
@@ -74,11 +84,11 @@ namespace EasySign.Cli
                         AnsiConsole.MarkupLine($"Verifying Certificate [{Color.Teal}]{certificate.GetNameInfo(X509NameType.SimpleName, false)}[/] Issued by [{Color.Aqua}]{certificate.GetNameInfo(X509NameType.SimpleName, true)}[/]");
 
                         var verifyCert = Bundle.VerifyCertificate(cert);
-                        AnsiConsole.MarkupLine($"[{(verifyCert ? Color.Green : Color.Red)}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
+                        AnsiConsole.MarkupLine($"[{(verifyCert ? colorDict["cert_verified"] : colorDict["cert_failed"])}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
                         if (!verifyCert) continue;
 
                         var verifySign = Bundle.VerifySignature(cert);
-                        AnsiConsole.MarkupLine($"[{(verifySign ? Color.Green : Color.Red)}] Signature Verification {(verifySign ? "Successful" : "Failed")}[/]");
+                        AnsiConsole.MarkupLine($"[{(verifySign ? colorDict["cert_verified"] : colorDict["cert_failed"])}] Signature Verification {(verifySign ? "Successful" : "Failed")}[/]");
                         if (!verifySign) continue;
 
                         verifiedCerts++;
@@ -107,10 +117,40 @@ namespace EasySign.Cli
 
                     bool p2Verified = true;
 
+                    int fv = 0;
+                    int ff = 0;
+                    int fm = 0;
+                    int fe = 0;
+
                     Parallel.ForEach(Bundle.Manifest.Entries, (entry) =>
                     {
-                        var verifyFile = Bundle.VerifyFile(entry.Key);
-                        AnsiConsole.MarkupLine($"[{(verifyFile ? Color.MediumSpringGreen : Color.OrangeRed1)}]{entry.Key}[/]");
+                        var verifyFile = false;
+
+                        try
+                        {
+                            verifyFile = Bundle.VerifyFile(entry.Key);
+
+                            if (verifyFile)
+                            {
+                                Interlocked.Increment(ref fv);
+                            }
+                            else
+                            {
+                                Interlocked.Increment(ref ff);
+                            }
+
+                            AnsiConsole.MarkupLine($"[{(verifyFile ? colorDict["file_verified"] : colorDict["file_failed"])}]{entry.Key}[/]");
+                        }
+                        catch (FileNotFoundException)
+                        {
+                            Interlocked.Increment(ref fm);
+                            AnsiConsole.MarkupLine($"[{colorDict["file_missing"]}]{entry.Key}[/]");
+                        }
+                        catch (Exception ex)
+                        {
+                            Interlocked.Increment(ref fe);
+                            AnsiConsole.MarkupLine($"[{colorDict["file_error"]}]{entry.Key} - {ex.GetType().Name}: {ex.Message}[/]");
+                        }
 
                         if (!verifyFile)
                         {
@@ -120,9 +160,17 @@ namespace EasySign.Cli
 
                     AnsiConsole.WriteLine();
 
+                    AnsiConsole.MarkupLine("File Verification Summary");
+                    AnsiConsole.MarkupLine($"[{colorDict["file_verified"]}] {fv} Files verified[/]");
+                    AnsiConsole.MarkupLine($"[{colorDict["file_failed"]}] {ff} Files tampered with[/]");
+                    AnsiConsole.MarkupLine($"[{colorDict["file_missing"]}] {fm} Files not found[/]");
+                    AnsiConsole.MarkupLine($"[{colorDict["file_error"]}] {fe} Files encountered with errors[/]");
+
+                    AnsiConsole.WriteLine();
+
                     if (!p2Verified)
                     {
-                        AnsiConsole.MarkupLine($"[red]Some files were tampered with and file verification is failed[/]");
+                        AnsiConsole.MarkupLine($"[red]File Verification Failed[/]");
                         return;
                     }
 
