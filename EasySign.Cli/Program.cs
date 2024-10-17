@@ -86,7 +86,10 @@ namespace EasySign.Cli
                 .Spinner(Spinner.Known.Default)
                 .Start("[yellow]Indexing Files[/]", ctx =>
                 {
-                    Bundle.Load(false);
+                    if (File.Exists(Bundle.BundlePath))
+                    {
+                        Bundle.Load(false);
+                    }
 
                     Parallel.ForEach(SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
                     {
@@ -113,12 +116,39 @@ namespace EasySign.Cli
                     store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
 
                     X509Certificate2Collection collection = store.Certificates;
+
+                    int divider = 0;
                     foreach (var cert in collection.Where(x => x.HasPrivateKey))
                     {
+                        if (divider++ > 0) AnsiConsole.WriteLine();
+
+                        var grid = new Grid();
+                        grid.AddColumn(new GridColumn().NoWrap());
+                        grid.AddColumn(new GridColumn().PadLeft(2));
+                        grid.AddRow("Certificate Info:");
+                        grid.AddRow("  Common Name", cert.GetNameInfo(X509NameType.SimpleName, false));
+                        grid.AddRow("  Issuer Name", cert.GetNameInfo(X509NameType.SimpleName, true));
+                        grid.AddRow("  Holder Email", cert.GetNameInfo(X509NameType.EmailName, false));
+                        grid.AddRow("  Valid From", cert.GetEffectiveDateString());
+                        grid.AddRow("  Valid To", cert.GetExpirationDateString());
+                        grid.AddRow("  Thumbprint", cert.Thumbprint);
+
+                        AnsiConsole.Write(grid);
+                        AnsiConsole.WriteLine();
+
+                        var verifyCert = cert.Verify();
+                        AnsiConsole.MarkupLine($"[{(verifyCert ? Color.Green : Color.Red)}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
+                        if (!verifyCert) continue;
+
                         var prvKey = cert.GetRSAPrivateKey();
-                        if (prvKey == null) continue;
+                        if (prvKey == null)
+                        {
+                            AnsiConsole.MarkupLine($"[{Color.Green}] Failed to Acquire RSA Private Key[/]");
+                            continue;
+                        }
+
                         Bundle.SignBundle(cert, prvKey);
-                        AnsiConsole.MarkupLine($"[green]Signed by:[/] {cert.GetNameInfo(X509NameType.SimpleName, false)}");
+                        AnsiConsole.MarkupLine($"[green] Signing Completed Successfully[/]");
                     }
 
                     ctx.Status("[yellow]Updating Bundle[/]");
@@ -166,6 +196,8 @@ namespace EasySign.Cli
                         verifiedCerts++;
                     }
 
+                    AnsiConsole.WriteLine();
+
                     if (verifiedCerts == 0)
                     {
                         if (Bundle.Signatures.Entries.Count == 0)
@@ -176,8 +208,6 @@ namespace EasySign.Cli
                         AnsiConsole.MarkupLine($"[red]Verification failed[/]");
                         return;
                     }
-
-                    AnsiConsole.WriteLine();
 
                     if (verifiedCerts == Bundle.Signatures.Entries.Count)
                     {

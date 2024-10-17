@@ -3,13 +3,17 @@
     "EasySign.Cli": {
       "commandName": "Project"
     },
-    "Profile 1": {
+    "Add": {
       "commandName": "Project",
       "commandLineArgs": "add ."
     },
-    "Profile 2": {
+    "Verify": {
       "commandName": "Project",
       "commandLineArgs": "verify ."
+    },
+    "Sign": {
+      "commandName": "Project",
+      "commandLineArgs": "sign ."
     }
   }
 }
