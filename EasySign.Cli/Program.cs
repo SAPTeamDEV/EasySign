@@ -105,17 +105,31 @@ namespace EasySign.Cli
 
         static void Sign()
         {
+            X509Store store = new X509Store("MY", StoreLocation.CurrentUser);
+            store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+
+            var mapping = new Dictionary<string, X509Certificate2>();
+            foreach (var cert in store.Certificates)
+            {
+                mapping[$"{cert.GetNameInfo(X509NameType.SimpleName, false)},{cert.GetNameInfo(X509NameType.SimpleName, true)},{cert.Thumbprint}"] = cert;
+            }
+
+            var selection = AnsiConsole.Prompt(
+                new MultiSelectionPrompt<string>()
+                    .PageSize(10)
+                    .Title("Select Signing Certificates")
+                    .MoreChoicesText("[grey](Move up and down to see more certificates)[/]")
+                    .InstructionsText("[grey](Press [blue]<space>[/] to toggle a certificate, [green]<enter>[/] to accept)[/]")
+                    .AddChoices(mapping.Keys));
+
+            X509Certificate2Collection collection = new(selection.Select(x => mapping[x]).ToArray());
+
             AnsiConsole.Status()
                 .AutoRefresh(true)
                 .Spinner(Spinner.Known.Default)
                 .Start("[yellow]Signing[/]", ctx =>
                 {
                     Bundle.Load(false);
-
-                    X509Store store = new X509Store("MY", StoreLocation.CurrentUser);
-                    store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
-
-                    X509Certificate2Collection collection = store.Certificates;
 
                     int divider = 0;
                     foreach (var cert in collection.Where(x => x.HasPrivateKey))
