@@ -96,6 +96,11 @@ namespace EasySign.Cli
 
                     if (verifiedCerts == 0)
                     {
+                        if (Bundle.Signatures.Entries.Count == 0)
+                        {
+                            AnsiConsole.MarkupLine($"[red]This bundle is not signed[/]");
+                        }
+
                         AnsiConsole.MarkupLine($"[red]Verification failed[/]");
                         return;
                     }
