@@ -267,13 +267,16 @@ namespace EasySign.Cli
 
                     AnsiConsole.WriteLine();
 
-                    AnsiConsole.MarkupLine("File Verification Summary");
-                    AnsiConsole.MarkupLine($"[{colorDict["file_verified"]}] {fv} Files verified[/]");
-                    AnsiConsole.MarkupLine($"[{colorDict["file_failed"]}] {ff} Files tampered with[/]");
-                    AnsiConsole.MarkupLine($"[{colorDict["file_missing"]}] {fm} Files not found[/]");
-                    AnsiConsole.MarkupLine($"[{colorDict["file_error"]}] {fe} Files encountered with errors[/]");
+                    if (Bundle.Manifest.Entries.Count != fv)
+                    {
+                        AnsiConsole.MarkupLine("File Verification Summary");
+                        AnsiConsole.MarkupLine($"[{colorDict["file_verified"]}] {fv} Files verified[/]");
+                        if (ff > 0) AnsiConsole.MarkupLine($"[{colorDict["file_failed"]}] {ff} Files tampered with[/]");
+                        if (fm > 0) AnsiConsole.MarkupLine($"[{colorDict["file_missing"]}] {fm} Files not found[/]");
+                        if (fe > 0) AnsiConsole.MarkupLine($"[{colorDict["file_error"]}] {fe} Files encountered with errors[/]");
 
-                    AnsiConsole.WriteLine();
+                        AnsiConsole.WriteLine();
+                    }
 
                     if (!p2Verified)
                     {
