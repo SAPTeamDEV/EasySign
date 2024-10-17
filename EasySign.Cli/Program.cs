@@ -200,18 +200,41 @@ namespace EasySign.Cli
 
         private static bool VerifyCertificate(X509Certificate2 certificate)
         {
-            var verifyCert = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
-            AnsiConsole.MarkupLine($"[{(verifyCert ? Color.Green : Color.Red)}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
+            List<bool> verifyResults = new();
+
+            var defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
+            verifyResults.Add(defaultVerification);
+
+            AnsiConsole.MarkupLine($"[{(defaultVerification ? Color.Green : Color.Red)}] Certificate Verification {(defaultVerification ? "Successful" : "Failed")}[/]");
             
-            if (!verifyCert)
+            if (!defaultVerification)
             {
-                foreach (var status in statuses)
+                bool timeIssue = statuses.Any(x => x.Status.HasFlag(X509ChainStatusFlags.NotTimeValid));
+
+                EnumerateStatuses(statuses);
+
+                if (timeIssue)
                 {
-                    AnsiConsole.MarkupLine($"[{Color.Red}]  {status.Status} - {status.StatusInformation}[/]");
+                    var policy = new X509ChainPolicy();
+                    policy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
+
+                    var noTimeVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] noTimeStatuses, policy: policy);
+                    verifyResults.Add(noTimeVerification);
+
+                    AnsiConsole.MarkupLine($"[{(noTimeVerification ? Color.Green : Color.Red)}] Certificate Verification without time checking {(noTimeVerification ? "Successful" : "Failed")}[/]");
+                    EnumerateStatuses(noTimeStatuses);
                 }
             }
 
-            return verifyCert;
+            return verifyResults.Any(x => x);
+        }
+
+        private static void EnumerateStatuses(X509ChainStatus[] statuses)
+        {
+            foreach (var status in statuses)
+            {
+                AnsiConsole.MarkupLine($"[{Color.IndianRed}]   {status.StatusInformation}[/]");
+            }
         }
 
         static void Verify()
