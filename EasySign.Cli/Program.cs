@@ -37,17 +37,66 @@ namespace EasySign.Cli
 
             root.AddCommand(addCmd);
 
+            var pfxOpt = new Option<string>("--pfx", "PFX File contains certificate and private key");
+            var pfxPassOpt = new Option<string>("--pfx-password", "PFX File password");
+            var pfxNoPassOpt = new Option<bool>("--no-password", "Ignore PFX File password prompt");
+
             var signCmd = new Command("sign", "Sign bundle with certificate")
             {
                 directoryArg,
                 fileOpt,
+                pfxOpt,
+                pfxPassOpt,
+                pfxNoPassOpt,
             };
 
-            signCmd.SetHandler((workingDir, bundleName) =>
+            signCmd.SetHandler((workingDir, bundleName, pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt) =>
             {
                 InitBundle(workingDir, bundleName);
-                Sign();
-            }, directoryArg, fileOpt);
+
+                X509Certificate2Collection collection = new();
+
+                if (!string.IsNullOrEmpty(pfxFilePath))
+                {
+                    string pfpass = !string.IsNullOrEmpty(pfxFilePassword) ? pfxFilePassword : !pfxNoPasswordPrompt ? SecurePrompt("Enter PFX File password (if needed): ") : "";
+
+                    var tempCollection = new X509Certificate2Collection();
+                    tempCollection.Import(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
+
+                    var cond = tempCollection.Where(x => x.HasPrivateKey);
+                    if (cond.Any())
+                    {
+                        collection.AddRange(cond.ToArray());
+                    }
+                    else
+                    {
+                        collection.AddRange(tempCollection);
+                    }
+                }
+                else
+                {
+                    X509Store store = new X509Store("MY", StoreLocation.CurrentUser);
+                    store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+
+                    var mapping = new Dictionary<string, X509Certificate2>();
+                    foreach (var cert in store.Certificates)
+                    {
+                        mapping[$"{cert.GetNameInfo(X509NameType.SimpleName, false)},{cert.GetNameInfo(X509NameType.SimpleName, true)},{cert.Thumbprint}"] = cert;
+                    }
+
+                    var selection = AnsiConsole.Prompt(
+                        new MultiSelectionPrompt<string>()
+                            .PageSize(10)
+                            .Title("Select Signing Certificates")
+                            .MoreChoicesText("[grey](Move up and down to see more certificates)[/]")
+                            .InstructionsText("[grey](Press [blue]<space>[/] to toggle a certificate, [green]<enter>[/] to accept)[/]")
+                            .AddChoices(mapping.Keys));
+
+                    collection.AddRange(selection.Select(x => mapping[x]).ToArray());
+                }
+                
+                Sign(collection);
+            }, directoryArg, fileOpt, pfxOpt, pfxPassOpt, pfxNoPassOpt);
 
             root.AddCommand(signCmd);
 
@@ -103,27 +152,8 @@ namespace EasySign.Cli
                 });
         }
 
-        static void Sign()
+        static void Sign(X509Certificate2Collection certificates)
         {
-            X509Store store = new X509Store("MY", StoreLocation.CurrentUser);
-            store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
-
-            var mapping = new Dictionary<string, X509Certificate2>();
-            foreach (var cert in store.Certificates)
-            {
-                mapping[$"{cert.GetNameInfo(X509NameType.SimpleName, false)},{cert.GetNameInfo(X509NameType.SimpleName, true)},{cert.Thumbprint}"] = cert;
-            }
-
-            var selection = AnsiConsole.Prompt(
-                new MultiSelectionPrompt<string>()
-                    .PageSize(10)
-                    .Title("Select Signing Certificates")
-                    .MoreChoicesText("[grey](Move up and down to see more certificates)[/]")
-                    .InstructionsText("[grey](Press [blue]<space>[/] to toggle a certificate, [green]<enter>[/] to accept)[/]")
-                    .AddChoices(mapping.Keys));
-
-            X509Certificate2Collection collection = new(selection.Select(x => mapping[x]).ToArray());
-
             AnsiConsole.Status()
                 .AutoRefresh(true)
                 .Spinner(Spinner.Known.Default)
@@ -132,7 +162,7 @@ namespace EasySign.Cli
                     Bundle.Load(false);
 
                     int divider = 0;
-                    foreach (var cert in collection.Where(x => x.HasPrivateKey))
+                    foreach (var cert in certificates)
                     {
                         if (divider++ > 0) AnsiConsole.WriteLine();
 
@@ -340,6 +370,15 @@ namespace EasySign.Cli
                     folders.Enqueue(str);
                 }
             }
+        }
+
+        static string SecurePrompt(string prompt)
+        {
+            return AnsiConsole.Prompt(
+                new TextPrompt<string>(prompt)
+                    .PromptStyle("red")
+                    .AllowEmpty()
+                    .Secret(null));
         }
     }
 }
