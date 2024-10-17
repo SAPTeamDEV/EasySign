@@ -180,14 +180,14 @@ namespace EasySign
             return result;
         }
 
-        public bool VerifyCertificate(string certificateHash, X509ChainPolicy policy = null)
+        public bool VerifyCertificate(string certificateHash, out X509ChainStatus[] statuses, X509ChainPolicy policy = null)
         {
             X509Certificate2 certificate = GetCertificate(certificateHash);
 
-            return VerifyCertificate(certificate, policy);
+            return VerifyCertificate(certificate, out statuses, policy);
         }
 
-        public bool VerifyCertificate(X509Certificate2 certificate, X509ChainPolicy policy = null)
+        public bool VerifyCertificate(X509Certificate2 certificate, out X509ChainStatus[] statuses, X509ChainPolicy policy = null)
         {
             X509Chain chain = new X509Chain
             {
@@ -195,6 +195,7 @@ namespace EasySign
             };
 
             bool isValid = chain.Build(certificate);
+            statuses = chain.ChainStatus;
             return isValid;
         }
 

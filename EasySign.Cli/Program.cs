@@ -200,8 +200,17 @@ namespace EasySign.Cli
 
         private static bool VerifyCertificate(X509Certificate2 certificate)
         {
-            var verifyCert = Bundle.VerifyCertificate(certificate);
+            var verifyCert = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
             AnsiConsole.MarkupLine($"[{(verifyCert ? Color.Green : Color.Red)}] Certificate Verification {(verifyCert ? "Successful" : "Failed")}[/]");
+            
+            if (!verifyCert)
+            {
+                foreach (var status in statuses)
+                {
+                    AnsiConsole.MarkupLine($"[{Color.Red}]  {status.Status} - {status.StatusInformation}[/]");
+                }
+            }
+
             return verifyCert;
         }
 
