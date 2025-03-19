@@ -115,22 +115,27 @@ namespace EasySign
             }
         }
 
-        public void AddEntry(string path)
+        public void AddEntry(string path, string destinationPath = "./")
         {
             ThrowIfReadOnly();
 
+            if (!destinationPath.EndsWith('/'))
+            {
+                destinationPath += "/";
+            }
+
             using var file = File.OpenRead(path);
-            string name;
+            string name = new Cds.Folders.OSPath(Path.GetRelativePath(RootPath, path)).Unix;
             var hash = ComputeSHA512Hash(file);
 
             if (Manifest.BundleFiles)
             {
-                name = Path.GetFileName(path);
+                if (!string.IsNullOrEmpty(destinationPath) && destinationPath != "./")
+                {
+                    name = destinationPath + name;
+                }
+
                 newEmbeddedFiles[name] = File.ReadAllBytes(path);
-            }
-            else
-            {
-                name = new Cds.Folders.OSPath(Path.GetRelativePath(RootPath, path)).Unix;
             }
 
             Manifest.GetConcurrentDictionary()[name] = hash;
