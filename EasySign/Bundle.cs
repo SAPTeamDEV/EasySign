@@ -35,13 +35,15 @@ namespace EasySign
         
         readonly ConcurrentDictionary<string, byte[]> fileCache = new();
 
-        readonly JsonSerializerOptions options = new JsonSerializerOptions()
+        protected readonly JsonSerializerOptions options = new JsonSerializerOptions()
         {
             WriteIndented = false,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
         };
 
         public bool ReadOnly { get; private set; }
+
+        public event Action<ZipArchive> Updating;
 
         public Bundle(string rootPath, string bundleName) : this(rootPath)
         {
@@ -99,7 +101,7 @@ namespace EasySign
             ReadBundle(zip);
         }
 
-        private void ReadBundle(ZipArchive zip)
+        protected virtual void ReadBundle(ZipArchive zip)
         {
             ZipArchiveEntry entry;
             if ((entry = zip.GetEntry(".manifest.ec")) != null)
@@ -239,7 +241,7 @@ namespace EasySign
             }
         }
 
-        private byte[] Export(object structuredData)
+        protected byte[] Export(object structuredData)
         {
             var data = JsonSerializer.Serialize(structuredData, options);
             return Encoding.UTF8.GetBytes(data);
@@ -263,6 +265,8 @@ namespace EasySign
             {
                 WriteEntry(zip, ".manifest.ec", ExportManifest());
                 WriteEntry(zip, ".signatures.ec", ExportSignature());
+
+                Updating?.Invoke(zip);
                 
                 foreach (var newFile in newEmbeddedFiles)
                 {
@@ -294,7 +298,7 @@ namespace EasySign
             return ms.ToArray();
         }
 
-        private void WriteEntry(ZipArchive zip, string entryName, byte[] data)
+        protected void WriteEntry(ZipArchive zip, string entryName, byte[] data)
         {
             ZipArchiveEntry tempEntry;
             if ((tempEntry = zip.GetEntry(entryName)) != null)
