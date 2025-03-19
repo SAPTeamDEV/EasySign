@@ -263,10 +263,10 @@ namespace EasySign
 
             using (ZipArchive zip = GetZipArchive(ZipArchiveMode.Update))
             {
+                Updating?.Invoke(zip);
+
                 WriteEntry(zip, ".manifest.ec", ExportManifest());
                 WriteEntry(zip, ".signatures.ec", ExportSignature());
-
-                Updating?.Invoke(zip);
                 
                 foreach (var newFile in newEmbeddedFiles)
                 {
