@@ -115,7 +115,7 @@ namespace EasySign
             }
         }
 
-        public void AddEntry(string path, string destinationPath = "./")
+        public void AddEntry(string path, string destinationPath = "./", string rootPath = null)
         {
             ThrowIfReadOnly();
 
@@ -124,8 +124,13 @@ namespace EasySign
                 destinationPath += "/";
             }
 
+            if (string.IsNullOrEmpty(rootPath))
+            {
+                rootPath = RootPath;
+            }
+
             using var file = File.OpenRead(path);
-            string name = new Cds.Folders.OSPath(Path.GetRelativePath(RootPath, path)).Unix;
+            string name = new Cds.Folders.OSPath(Path.GetRelativePath(rootPath, path)).Unix;
             var hash = ComputeSHA512Hash(file);
 
             if (Manifest.BundleFiles)
