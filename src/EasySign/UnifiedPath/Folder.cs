@@ -14,22 +14,6 @@ namespace SAPTeam.EasySign.UnifiedPath
     public class Folder : FolderEntry
     {
         /// <summary>
-        /// Creates a <see cref="Folder"/> instance representing the directory of the specified assembly.
-        /// </summary>
-        /// <typeparam name="T">The type whose assembly's location is used.</typeparam>
-        /// <returns>A <see cref="Folder"/> instance.</returns>
-        public static Folder OfAssembly<T>() =>
-            OfAssembly(typeof(T).Assembly);
-
-        /// <summary>
-        /// Creates a <see cref="Folder"/> instance representing the directory of the specified assembly.
-        /// </summary>
-        /// <param name="assembly">The assembly whose location is used.</param>
-        /// <returns>A <see cref="Folder"/> instance.</returns>
-        public static Folder OfAssembly(Assembly assembly) =>
-            new Folder(GetDirectoryName(assembly.Location));
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="Folder"/> class with the specified full path.
         /// </summary>
         /// <param name="fullPath">The full path of the folder.</param>

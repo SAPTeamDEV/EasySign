@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace SAPTeam.EasySign
@@ -63,4 +64,12 @@ namespace SAPTeam.EasySign
             }
         }
     }
+
+#if NET6_0_OR_GREATER
+    [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    [JsonSerializable(typeof(Manifest))]
+    internal partial class SourceGenerationManifestContext : JsonSerializerContext
+    {
+    }
+#endif
 }
