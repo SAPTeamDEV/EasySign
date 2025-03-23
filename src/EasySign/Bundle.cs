@@ -55,7 +55,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Gets the signatures of the bundle.
         /// </summary>
-        public Signature Signatures { get; private set; } = new();
+        public Signatures Signatures { get; private set; } = new();
 
         private readonly Dictionary<string, X509Certificate2> certCache = new();
 
@@ -190,7 +190,7 @@ namespace SAPTeam.EasySign
                 Manifest = JsonSerializer.Deserialize<Manifest>(entry.Open(), SerializerOptions);
 
             if ((entry = zip.GetEntry(".signatures.ec")) != null)
-                Signatures = JsonSerializer.Deserialize<Signature>(entry.Open(), SerializerOptions);
+                Signatures = JsonSerializer.Deserialize<Signatures>(entry.Open(), SerializerOptions);
         }
 
         /// <summary>

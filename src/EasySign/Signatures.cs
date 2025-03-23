@@ -7,8 +7,14 @@ using System.Threading.Tasks;
 
 namespace SAPTeam.EasySign
 {
-    public class Signature
+    /// <summary>
+    /// Represents a collection of manifest signatures.
+    /// </summary>
+    public class Signatures
     {
+        /// <summary>
+        /// Gets or sets the signature entries.
+        /// </summary>
         public Dictionary<string, byte[]> Entries { get; set; } = new();
     }
 }
