@@ -7,7 +7,7 @@ using System.Text;
 
 using Spectre.Console;
 
-namespace EasySign.Cli
+namespace SAPTeam.EasySign.Cli
 {
     internal class Program
     {
@@ -65,9 +65,7 @@ namespace EasySign.Cli
 
                     var cond = tempCollection.Where(x => x.HasPrivateKey);
                     if (cond.Any())
-                    {
                         collection.AddRange(cond.ToArray());
-                    }
                     else
                     {
                         collection.AddRange(tempCollection);
@@ -136,9 +134,7 @@ namespace EasySign.Cli
                 .Start("[yellow]Indexing Files[/]", ctx =>
                 {
                     if (File.Exists(Bundle.BundlePath))
-                    {
                         Bundle.Load(false);
-                    }
 
                     Parallel.ForEach(SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
                     {
@@ -279,18 +275,14 @@ namespace EasySign.Cli
                     if (verifiedCerts == 0)
                     {
                         if (Bundle.Signatures.Entries.Count == 0)
-                        {
                             AnsiConsole.MarkupLine($"[red]This bundle is not signed[/]");
-                        }
 
                         AnsiConsole.MarkupLine($"[red]Verification failed[/]");
                         return;
                     }
 
                     if (verifiedCerts == Bundle.Signatures.Entries.Count)
-                    {
                         AnsiConsole.MarkupLine($"[{Color.Green3}]All Certificates were verified[/]");
-                    }
                     else
                     {
                         AnsiConsole.MarkupLine($"[{Color.Yellow}]{verifiedCerts} out of {Bundle.Signatures.Entries.Count} Certificates were verified[/]");
@@ -316,9 +308,7 @@ namespace EasySign.Cli
                             verifyFile = Bundle.VerifyFile(entry.Key);
 
                             if (verifyFile)
-                            {
                                 Interlocked.Increment(ref fv);
-                            }
                             else
                             {
                                 Interlocked.Increment(ref ff);
@@ -338,9 +328,7 @@ namespace EasySign.Cli
                         }
 
                         if (!verifyFile)
-                        {
                             p2Verified = false;
-                        }
                     });
 
                     AnsiConsole.WriteLine();

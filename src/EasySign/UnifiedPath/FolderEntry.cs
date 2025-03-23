@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Cds.Folders
+namespace SAPTeam.EasySign.UnifiedPath
 {
     public abstract class FolderEntry
     {

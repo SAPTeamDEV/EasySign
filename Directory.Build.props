@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <RepoRootPath>$(MSBuildThisFileDirectory)</RepoRootPath>
+    <BaseIntermediateOutputPath>$(RepoRootPath)artifacts\obj\$([MSBuild]::MakeRelative($(RepoRootPath), $(MSBuildProjectDirectory)))\</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition=" '$(BaseOutputPath)' == '' ">$(RepoRootPath)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
+    <PublishDir>$(RepoRootPath)artifacts\publish\$(MSBuildProjectName)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</PublishDir>
+    <PackageOutputPath>$(RepoRootPath)artifacts\packages\$(Configuration)\</PackageOutputPath>
+
+    <RepositoryUrl>https://github.com/SAPTeamDEV/EasySign</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Authors>Alireza Poodineh</Authors>
+    <Company>SAP Team</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright (c) SAP Team</Copyright>
+
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)EasySign.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+</Project>

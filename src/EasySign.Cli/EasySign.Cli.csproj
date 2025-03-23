@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0;net8.0;net9.0</TargetFramework>
+    <GenerateDocumentationFile>False</GenerateDocumentationFile>
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+    <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
+
+    <AssemblyName>esign</AssemblyName>
+    <RootNamespace>SAPTeam.EasySign.Cli</RootNamespace>
+    <PackageId>SAPTeam.EasySign.Tool</PackageId>
+
+    <Title>EasySign CLI</Title>
+    <AssemblyTitle>EasySign Command-Line Interface</AssemblyTitle>
+    <Product>C# Signing Tool.</Product>
+    <Description>A Simple .NET Tool for signing and verifying files.</Description>
+    <PackageTags>sign;verify;certificate</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <PackAsTool>True</PackAsTool>
+    <ToolCommandName>esign</ToolCommandName>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0')) And $(AotCompile) == 'true'">
+    <PublishTrimmed>True</PublishTrimmed>
+    <PublishAot>True</PublishAot>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.7.115" PrivateAssets="All" />
+    <PackageReference Include="Spectre.Console" Version="0.49.1" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EasySign\EasySign.csproj" />
+  </ItemGroup>
+  
+</Project>

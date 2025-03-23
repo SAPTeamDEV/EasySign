@@ -6,7 +6,7 @@ using System.Linq;
 using System.Reflection;
 using static System.IO.Path;
 
-namespace Cds.Folders
+namespace SAPTeam.EasySign.UnifiedPath
 {
     public class Folder : FolderEntry
     {

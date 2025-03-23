@@ -11,7 +11,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace EasySign
+namespace SAPTeam.EasySign
 {
     public class Bundle
     {
@@ -58,9 +58,7 @@ namespace EasySign
         void ThrowIfReadOnly()
         {
             if (ReadOnly)
-            {
                 throw new InvalidOperationException("Bundle is read-only");
-            }
         }
 
         public ZipArchive GetZipArchive(ZipArchiveMode mode = ZipArchiveMode.Read)
@@ -68,9 +66,7 @@ namespace EasySign
             ZipArchive archive;
 
             if (mode != ZipArchiveMode.Read)
-            {
                 ThrowIfReadOnly();
-            }
 
             if (rawZipContents != null && rawZipContents.Length > 0)
             {
@@ -105,14 +101,10 @@ namespace EasySign
         {
             ZipArchiveEntry entry;
             if ((entry = zip.GetEntry(".manifest.ec")) != null)
-            {
                 Manifest = JsonSerializer.Deserialize<Manifest>(entry.Open(), options);
-            }
 
             if ((entry = zip.GetEntry(".signatures.ec")) != null)
-            {
                 Signatures = JsonSerializer.Deserialize<Signature>(entry.Open(), options);
-            }
         }
 
         public void AddEntry(string path, string destinationPath = "./", string rootPath = null)
@@ -120,25 +112,19 @@ namespace EasySign
             ThrowIfReadOnly();
 
             if (!destinationPath.EndsWith('/'))
-            {
                 destinationPath += "/";
-            }
 
             if (string.IsNullOrEmpty(rootPath))
-            {
                 rootPath = RootPath;
-            }
 
             using var file = File.OpenRead(path);
-            string name = new Cds.Folders.OSPath(Path.GetRelativePath(rootPath, path)).Unix;
+            string name = new UnifiedPath.OSPath(Path.GetRelativePath(rootPath, path)).Unix;
             var hash = ComputeSHA512Hash(file);
 
             if (Manifest.BundleFiles)
             {
                 if (!string.IsNullOrEmpty(destinationPath) && destinationPath != "./")
-                {
                     name = destinationPath + name;
-                }
 
                 newEmbeddedFiles[name] = File.ReadAllBytes(path);
             }
@@ -293,9 +279,7 @@ namespace EasySign
                 data = ReadStream(stream);
 
                 if (ReadOnly)
-                {
                     fileCache[entryName] = data;
-                }
             }
             
             return data;
@@ -312,9 +296,7 @@ namespace EasySign
         {
             ZipArchiveEntry tempEntry;
             if ((tempEntry = zip.GetEntry(entryName)) != null)
-            {
                 tempEntry.Delete();
-            }
 
             ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.SmallestSize);
 

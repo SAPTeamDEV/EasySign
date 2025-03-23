@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace Cds.Folders
+namespace SAPTeam.EasySign.UnifiedPath
 {
     public class FolderFile : FolderEntry
     {

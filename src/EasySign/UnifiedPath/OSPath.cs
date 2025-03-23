@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using static System.IO.Path;
+﻿using static System.IO.Path;
 
-namespace Cds.Folders
+namespace SAPTeam.EasySign.UnifiedPath
 {
     public class OSPath
     {
