@@ -322,6 +322,17 @@ namespace SAPTeam.EasySign
         }
 
         /// <summary>
+        /// Verifies the validity of a certificate using the specified certificate hash.
+        /// </summary>
+        /// <param name="certificateHash">The hash of the certificate to verify.</param>
+        /// <param name="policy">The chain policy to use for verification.</param>
+        /// <returns>True if the certificate is valid; otherwise, false.</returns>
+        public bool VerifyCertificate(string certificateHash, X509ChainPolicy policy = null)
+        {
+            return VerifyCertificate(certificateHash, out _, policy);
+        }
+
+        /// <summary>
         /// Verifies the validity of a certificate.
         /// </summary>
         /// <param name="certificate">The certificate to verify.</param>
@@ -338,6 +349,17 @@ namespace SAPTeam.EasySign
             bool isValid = chain.Build(certificate);
             statuses = chain.ChainStatus;
             return isValid;
+        }
+
+        /// <summary>
+        /// Verifies the validity of a certificate.
+        /// </summary>
+        /// <param name="certificate">The certificate to verify.</param>
+        /// <param name="policy">The chain policy to use for verification.</param>
+        /// <returns>True if the certificate is valid; otherwise, false.</returns>
+        public bool VerifyCertificate(X509Certificate2 certificate, X509ChainPolicy policy = null)
+        {
+            return VerifyCertificate(certificate, out _, policy);
         }
 
         /// <summary>
