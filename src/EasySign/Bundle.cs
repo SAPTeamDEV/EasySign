@@ -195,11 +195,11 @@ namespace SAPTeam.EasySign
 
         /// <summary>
         /// Adds a file entry to the bundle.
-        /// if the <see cref="Manifest.BundleFiles"/> is <see langword="true"/>, the file will be embedded in the bundle and it's hash added to manifest.
+        /// if the <see cref="Manifest.StoreOriginalFiles"/> is <see langword="true"/>, the file will be embedded in the bundle and it's hash added to manifest.
         /// Otherwise just the file hash added to the bundle.
         /// </summary>
         /// <param name="path">The path of the file to add.</param>
-        /// <param name="destinationPath">The destination path within the bundle. Ignore when <see cref="Manifest.BundleFiles"/> is <see langword="false"/></param>
+        /// <param name="destinationPath">The destination path within the bundle. Ignore when <see cref="Manifest.StoreOriginalFiles"/> is <see langword="false"/></param>
         /// <param name="rootPath">The root path for relative paths.</param>
         public void AddEntry(string path, string destinationPath = "./", string rootPath = null)
         {
@@ -215,15 +215,17 @@ namespace SAPTeam.EasySign
             string name = new UnifiedPath.OSPath(Path.GetRelativePath(rootPath, path)).Unix;
             var hash = ComputeSHA512Hash(file);
 
-            if (Manifest.BundleFiles)
+            if (Manifest.StoreOriginalFiles && !string.IsNullOrEmpty(destinationPath) && destinationPath != "./")
             {
-                if (!string.IsNullOrEmpty(destinationPath) && destinationPath != "./")
-                    name = destinationPath + name;
-
-                newEmbeddedFiles[name] = File.ReadAllBytes(path);
+                name = destinationPath + name;
             }
 
-            Manifest.GetConcurrentDictionary()[name] = hash;
+            Manifest.AddEntry(name, hash);
+
+            if (Manifest.StoreOriginalFiles)
+            {
+                newEmbeddedFiles[name] = File.ReadAllBytes(path);
+            }
         }
 
         /// <summary>
@@ -258,7 +260,7 @@ namespace SAPTeam.EasySign
         {
             byte[] hash;
 
-            if (Manifest.BundleFiles)
+            if (Manifest.StoreOriginalFiles)
             {
                 using var zip = OpenZipArchive();
                 hash = ComputeSHA512Hash(ReadEntry(zip, entryName));
@@ -342,7 +344,7 @@ namespace SAPTeam.EasySign
         /// <returns>A stream for the file.</returns>
         public Stream GetFileStream(string entryName)
         {
-            if (Manifest.BundleFiles)
+            if (Manifest.StoreOriginalFiles)
             {
                 using var zip = OpenZipArchive();
                 return zip.GetEntry(entryName).Open();
@@ -361,7 +363,7 @@ namespace SAPTeam.EasySign
         /// <returns>The bytes of the file.</returns>
         public byte[] GetFileBytes(string entryName)
         {
-            if (Manifest.BundleFiles)
+            if (Manifest.StoreOriginalFiles)
             {
                 using var zip = OpenZipArchive();
                 return ReadEntry(zip, entryName);
