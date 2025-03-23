@@ -20,7 +20,7 @@ namespace SAPTeam.EasySign.Cli
             #region Shared Options
             var directoryArg = new Argument<string>("directory", "Working directory");
 
-            var fileOpt = new Option<string>("-f", () => Bundle.DefaultBundleName, "Bundle file name");
+            var fileOpt = new Option<string>("-f", () => ".eSign", "Bundle file name");
             #endregion
 
             var addCmd = new Command("add", "Create new bundle or update an existing one")
@@ -137,8 +137,8 @@ namespace SAPTeam.EasySign.Cli
                 .Spinner(Spinner.Known.Default)
                 .Start("[yellow]Indexing Files[/]", ctx =>
                 {
-                    if (File.Exists(Bundle.BundlePath))
-                        Bundle.Load(false);
+                    if (!Bundle.IsLoaded && File.Exists(Bundle.BundlePath))
+                        Bundle.LoadFromFile(false);
 
                     Parallel.ForEach(SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
                     {
@@ -159,7 +159,7 @@ namespace SAPTeam.EasySign.Cli
                 .Spinner(Spinner.Known.Default)
                 .Start("[yellow]Signing[/]", ctx =>
                 {
-                    Bundle.Load(false);
+                    Bundle.LoadFromFile(false);
 
                     int divider = 0;
                     foreach (var cert in certificates)
@@ -189,7 +189,7 @@ namespace SAPTeam.EasySign.Cli
                             continue;
                         }
 
-                        Bundle.SignBundle(cert, prvKey);
+                        Bundle.Sign(cert, prvKey);
                         AnsiConsole.MarkupLine($"[green] Signing Completed Successfully[/]");
                     }
 
@@ -252,7 +252,7 @@ namespace SAPTeam.EasySign.Cli
                 .Spinner(Spinner.Known.Default)
                 .Start("[yellow]Verifying Signature[/]", ctx =>
                 {
-                    Bundle.Load();
+                    Bundle.LoadFromFile();
 
                     int verifiedCerts = 0;
                     int divider = 0;
@@ -309,7 +309,7 @@ namespace SAPTeam.EasySign.Cli
 
                         try
                         {
-                            verifyFile = Bundle.VerifyFile(entry.Key);
+                            verifyFile = Bundle.VerifyFileIntegrity(entry.Key);
 
                             if (verifyFile)
                                 Interlocked.Increment(ref fv);
