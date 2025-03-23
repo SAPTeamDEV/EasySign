@@ -60,8 +60,12 @@ namespace SAPTeam.EasySign.Cli
                 {
                     string pfpass = !string.IsNullOrEmpty(pfxFilePassword) ? pfxFilePassword : !pfxNoPasswordPrompt ? SecurePrompt("Enter PFX File password (if needed): ") : "";
 
+#if NET9_0_OR_GREATER
+                    var tempCollection = X509CertificateLoader.LoadPkcs12CollectionFromFile(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
+#else
                     var tempCollection = new X509Certificate2Collection();
                     tempCollection.Import(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
+#endif
 
                     var cond = tempCollection.Where(x => x.HasPrivateKey);
                     if (cond.Any())
