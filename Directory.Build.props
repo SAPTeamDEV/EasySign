@@ -9,6 +9,7 @@
     <PackageOutputPath>$(RepoRootPath)artifacts\packages\$(Configuration)\</PackageOutputPath>
 
     <RepositoryUrl>https://github.com/SAPTeamDEV/EasySign</RepositoryUrl>
+	<PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <Authors>Alireza Poodineh</Authors>
     <Company>SAP Team</Company>
@@ -24,6 +25,13 @@
     
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)EasySign.snk</AssemblyOriginatorKeyFile>
+	
+	<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+	<RestoreLockedMode>true</RestoreLockedMode>
   </PropertyGroup>
 
 </Project>
