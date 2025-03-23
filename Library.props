@@ -4,7 +4,6 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
     <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
-    <IsTrimmable>true</IsTrimmable>
     <Deterministic>True</Deterministic>
 
     <IncludeSymbols>true</IncludeSymbols>
@@ -15,6 +14,7 @@
 
   <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
     <IsAotCompatible>True</IsAotCompatible>
+	<IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
   
   <ItemGroup>

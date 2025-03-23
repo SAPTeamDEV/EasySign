@@ -298,7 +298,11 @@ namespace SAPTeam.EasySign
             if ((tempEntry = zip.GetEntry(entryName)) != null)
                 tempEntry.Delete();
 
+#if NET6_0_OR_GREATER
             ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.SmallestSize);
+#else
+            ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
+#endif
 
             using var stream = entry.Open();
             stream.Write(data, 0, data.Length);
