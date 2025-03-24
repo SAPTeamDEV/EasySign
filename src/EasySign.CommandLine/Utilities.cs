@@ -12,7 +12,7 @@ namespace SAPTeam.EasySign.CommandLine
     /// <summary>
     /// Provides utility methods for various operations.
     /// </summary>
-    public static class Utils
+    public static class Utilities
     {
         /// <summary>
         /// Runs the specified action within a status context, provides fancy progress showing.

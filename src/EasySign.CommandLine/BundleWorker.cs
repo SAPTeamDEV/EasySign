@@ -36,7 +36,7 @@ namespace SAPTeam.EasySign.CommandLine
             if (!Bundle.IsLoaded && File.Exists(Bundle.BundlePath))
                 Bundle.LoadFromFile(false);
 
-            Parallel.ForEach(Utils.SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
+            Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
             {
                 if (file == Bundle.BundlePath) return;
                 Bundle.AddEntry(file);
@@ -244,7 +244,7 @@ namespace SAPTeam.EasySign.CommandLine
             {
                 bool timeIssue = statuses.Any(x => x.Status.HasFlag(X509ChainStatusFlags.NotTimeValid));
 
-                Utils.EnumerateStatuses(statuses);
+                Utilities.EnumerateStatuses(statuses);
 
                 if (timeIssue)
                 {
@@ -255,7 +255,7 @@ namespace SAPTeam.EasySign.CommandLine
                     verifyResults.Add(noTimeVerification);
 
                     AnsiConsole.MarkupLine($"[{(noTimeVerification ? Color.Green : Color.Red)}] Certificate Verification without time checking {(noTimeVerification ? "Successful" : "Failed")}[/]");
-                    Utils.EnumerateStatuses(noTimeStatuses);
+                    Utilities.EnumerateStatuses(noTimeStatuses);
                 }
             }
 

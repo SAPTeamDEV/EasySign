@@ -46,7 +46,7 @@ namespace SAPTeam.EasySign.CommandLine
                 command.SetHandler((workingDir, bundleName) =>
                 {
                     InitializeBundle(workingDir, bundleName);
-                    Utils.RunInStatusContext(ctx => RunAdd(ctx));
+                    Utilities.RunInStatusContext(ctx => RunAdd(ctx));
                 }, WorkingDirectory, BundleName);
 
                 return command;
@@ -76,9 +76,9 @@ namespace SAPTeam.EasySign.CommandLine
                 command.SetHandler((workingDir, bundleName, pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt) =>
                 {
                     InitializeBundle(workingDir, bundleName);
-                    X509Certificate2Collection collection = Utils.GetCertificates(pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt);
+                    X509Certificate2Collection collection = Utilities.GetCertificates(pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt);
 
-                    Utils.RunInStatusContext(ctx => RunSign(ctx, collection));
+                    Utilities.RunInStatusContext(ctx => RunSign(ctx, collection));
                 }, WorkingDirectory, BundleName, pfxOpt, pfxPassOpt, pfxNoPassOpt);
 
                 return command;
@@ -101,7 +101,7 @@ namespace SAPTeam.EasySign.CommandLine
                 command.SetHandler((workingDir, bundleName) =>
                 {
                     InitializeBundle(workingDir, bundleName);
-                    Utils.RunInStatusContext(ctx => RunVerify(ctx));
+                    Utilities.RunInStatusContext(ctx => RunVerify(ctx));
                 }, WorkingDirectory, BundleName);
 
                 return command;
