@@ -12,6 +12,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
+using Microsoft.Extensions.Logging;
+
 namespace SAPTeam.EasySign
 {
     /// <summary>
@@ -19,8 +21,21 @@ namespace SAPTeam.EasySign
     /// </summary>
     public class Bundle
     {
-        private readonly string bundleName = ".eSign";
-        private byte[]? rawZipContents = null;
+        private readonly string _bundleName = ".eSign";
+        private byte[] _rawZipContents = [];
+
+        private readonly Dictionary<string, X509Certificate2> _certCache = new();
+        private readonly ConcurrentDictionary<string, byte[]> _newEmbeddedFiles = new();
+        private readonly ConcurrentDictionary<string, byte[]> _fileCache = new();
+
+        /// <summary>
+        /// Gets the JSON serializer options.
+        /// </summary>
+        protected readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions()
+        {
+            WriteIndented = false,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+        };
 
         /// <summary>
         /// Gets the root path of the bundle. This path used for relative path resolution.
@@ -30,18 +45,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Gets the name of the bundle file.
         /// </summary>
-        public string BundleName
-        {
-            get
-            {
-                if (IsLoadedFromMemory)
-                {
-                    throw new InvalidOperationException("Bundle is loaded from memory");
-                }
-
-                return bundleName;
-            }
-        }
+        public string BundleName => IsLoadedFromMemory ? throw new InvalidOperationException("Bundle is loaded from memory") : _bundleName;
 
         /// <summary>
         /// Gets the full path of the bundle file.
@@ -58,21 +62,6 @@ namespace SAPTeam.EasySign
         /// </summary>
         public Signatures Signatures { get; private set; } = new();
 
-        private readonly Dictionary<string, X509Certificate2> certCache = new();
-
-        private readonly ConcurrentDictionary<string, byte[]> newEmbeddedFiles = new();
-
-        private readonly ConcurrentDictionary<string, byte[]> fileCache = new();
-
-        /// <summary>
-        /// Gets the JSON serializer options.
-        /// </summary>
-        protected readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions()
-        {
-            WriteIndented = false,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
-        };
-
         /// <summary>
         /// Gets a value indicating whether the bundle is read-only.
         /// </summary>
@@ -81,7 +70,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Gets a value indicating whether the bundle is loaded from memory.
         /// </summary>
-        public bool IsLoadedFromMemory => rawZipContents != null && rawZipContents.Length > 0;
+        public bool IsLoadedFromMemory => _rawZipContents != null && _rawZipContents.Length > 0;
 
         /// <summary>
         /// Gets a value indicating whether the bundle is loaded.
@@ -100,7 +89,7 @@ namespace SAPTeam.EasySign
         /// <param name="bundleName">The name of the bundle.</param>
         public Bundle(string rootPath, string bundleName) : this(rootPath)
         {
-            this.bundleName = bundleName;
+            _bundleName = bundleName;
         }
 
         /// <summary>
@@ -133,9 +122,7 @@ namespace SAPTeam.EasySign
 
             if (IsLoadedFromMemory)
             {
-#pragma warning disable CS8604 // Possible null reference argument.
-                var ms = new MemoryStream(rawZipContents);
-#pragma warning restore CS8604 // Possible null reference argument.
+                var ms = new MemoryStream(_rawZipContents);
                 return new ZipArchive(ms, mode);
             }
             else
@@ -174,7 +161,7 @@ namespace SAPTeam.EasySign
             }
 
             IsReadOnly = true;
-            rawZipContents = bundleContent;
+            _rawZipContents = bundleContent;
 
             using var zip = OpenZipArchive();
             ReadBundle(zip);
@@ -227,7 +214,7 @@ namespace SAPTeam.EasySign
 
             if (Manifest.StoreOriginalFiles)
             {
-                newEmbeddedFiles[name] = File.ReadAllBytes(path);
+                _newEmbeddedFiles[name] = File.ReadAllBytes(path);
             }
         }
 
@@ -251,7 +238,7 @@ namespace SAPTeam.EasySign
             pemBuilder.AppendLine("-----END CERTIFICATE-----");
             string pemContents = pemBuilder.ToString();
 
-            newEmbeddedFiles[name] = Encoding.UTF8.GetBytes(pemContents);
+            _newEmbeddedFiles[name] = Encoding.UTF8.GetBytes(pemContents);
             Signatures.Entries[name] = signature;
         }
 
@@ -357,11 +344,11 @@ namespace SAPTeam.EasySign
         /// <returns>The certificate.</returns>
         public X509Certificate2 GetCertificate(string certificateHash)
         {
-            if (!certCache.TryGetValue(certificateHash, out X509Certificate2? certificate))
+            if (!_certCache.TryGetValue(certificateHash, out X509Certificate2? certificate))
             {
                 using var zip = OpenZipArchive();
                 var certData = ReadEntry(zip, certificateHash);
-                certCache[certificateHash] = certificate = new X509Certificate2(certData);
+                _certCache[certificateHash] = certificate = new X509Certificate2(certData);
             }
 
             return certificate;
@@ -452,7 +439,7 @@ namespace SAPTeam.EasySign
                 var signatureData = Export(Signatures, SourceGenerationSignaturesContext.Default);
                 WriteEntry(zip, ".signatures.ec", signatureData);
 
-                foreach (var newFile in newEmbeddedFiles)
+                foreach (var newFile in _newEmbeddedFiles)
                 {
                     WriteEntry(zip, newFile.Key, newFile.Value);
                 }
@@ -467,14 +454,14 @@ namespace SAPTeam.EasySign
         /// <returns>A byte array containing the entry data.</returns>
         protected byte[] ReadEntry(ZipArchive zip, string entryName)
         {
-            if (!fileCache.TryGetValue(entryName, out var data))
+            if (!_fileCache.TryGetValue(entryName, out var data))
             {
                 var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
                 using var stream = entry.Open();
                 data = ReadStream(stream);
 
                 if (IsReadOnly)
-                    fileCache[entryName] = data;
+                    _fileCache[entryName] = data;
             }
 
             return data;
