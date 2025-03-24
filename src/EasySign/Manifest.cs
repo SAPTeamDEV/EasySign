@@ -65,11 +65,10 @@ namespace SAPTeam.EasySign
         }
     }
 
-#if NET6_0_OR_GREATER
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     [JsonSerializable(typeof(Manifest))]
     internal partial class SourceGenerationManifestContext : JsonSerializerContext
     {
+
     }
-#endif
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -189,18 +190,10 @@ namespace SAPTeam.EasySign
         {
             ZipArchiveEntry? entry;
             if ((entry = zip.GetEntry(".manifest.ec")) != null)
-#if NET6_0_OR_GREATER
                 Manifest = JsonSerializer.Deserialize(entry.Open(), typeof(Manifest), SourceGenerationManifestContext.Default) as Manifest ?? new Manifest();
-#else
-                Manifest = JsonSerializer.Deserialize<Manifest>(entry.Open(), SerializerOptions) ?? new Manifest();;
-#endif
 
             if ((entry = zip.GetEntry(".signatures.ec")) != null)
-#if NET6_0_OR_GREATER
                 Signatures = JsonSerializer.Deserialize(entry.Open(), typeof(Signatures), SourceGenerationSignaturesContext.Default) as Signatures ?? new Signatures();
-#else
-                Signatures = JsonSerializer.Deserialize<Signatures>(entry.Open(), SerializerOptions) ?? new Signatures();
-#endif
         }
 
         /// <summary>
@@ -247,12 +240,7 @@ namespace SAPTeam.EasySign
         {
             EnsureWritable();
 
-#if NET6_0_OR_GREATER
             var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
-#else
-            var manifestData = Export(Manifest);
-#endif
-
             var signature = privateKey.SignData(manifestData, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
             var cert = Convert.ToBase64String(certificate.Export(X509ContentType.Cert));
             var name = certificate.GetCertHashString();
@@ -303,11 +291,7 @@ namespace SAPTeam.EasySign
 
             if (pubKey == null) return false;
 
-#if NET6_0_OR_GREATER
             var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
-#else
-            var manifestData = Export(Manifest);
-#endif
 
             return pubKey.VerifyData(manifestData, Signatures.Entries[certificateHash], HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
         }
@@ -422,7 +406,6 @@ namespace SAPTeam.EasySign
             }
         }
 
-#if NET6_0_OR_GREATER
         /// <summary>
         /// Exports the specified structured data to a byte array.
         /// </summary>
@@ -434,18 +417,23 @@ namespace SAPTeam.EasySign
             var data = JsonSerializer.Serialize(structuredData, structuredData.GetType(), jsonSerializerContext);
             return Encoding.UTF8.GetBytes(data);
         }
-#else
+
         /// <summary>
         /// Exports the specified structured data to a byte array.
         /// </summary>
         /// <param name="structuredData">The structured data to export.</param>
         /// <returns>A byte array containing the exported data.</returns>
+#if NET6_0_OR_GREATER
+        [RequiresUnreferencedCode("This method is not compatible with AOT.")]
+#endif
+#if NET8_0_OR_GREATER
+        [RequiresDynamicCode("This method is not compatible with AOT.")]
+#endif
         protected byte[] Export(object structuredData)
         {
             var data = JsonSerializer.Serialize(structuredData, SerializerOptions);
             return Encoding.UTF8.GetBytes(data);
         }
-#endif
 
         /// <summary>
         /// Writes changes to the bundle file.
@@ -458,20 +446,10 @@ namespace SAPTeam.EasySign
             {
                 OnUpdating?.Invoke(zip);
 
-#if NET6_0_OR_GREATER
                 var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
-#else
-                var manifestData = Export(Manifest);
-#endif
-
                 WriteEntry(zip, ".manifest.ec", manifestData);
 
-#if NET6_0_OR_GREATER
                 var signatureData = Export(Signatures, SourceGenerationSignaturesContext.Default);
-#else
-                var signatureData = Export(Signatures);
-#endif
-
                 WriteEntry(zip, ".signatures.ec", signatureData);
 
                 foreach (var newFile in newEmbeddedFiles)

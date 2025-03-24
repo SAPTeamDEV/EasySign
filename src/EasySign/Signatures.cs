@@ -19,11 +19,10 @@ namespace SAPTeam.EasySign
         public Dictionary<string, byte[]> Entries { get; set; } = new();
     }
 
-#if NET6_0_OR_GREATER
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     [JsonSerializable(typeof(Signatures))]
     internal partial class SourceGenerationSignaturesContext : JsonSerializerContext
     {
+
     }
-#endif
 }
