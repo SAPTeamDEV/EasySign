@@ -458,7 +458,12 @@ namespace SAPTeam.EasySign
                 Logger.LogDebug("Reading certificate with hash {hash} from the bundle", certificateHash);
                 using var zip = OpenZipArchive();
                 var certData = ReadEntry(zip, certificateHash);
+
+#if NET9_0_OR_GREATER
+                certificate = X509CertificateLoader.LoadCertificate(certData);
+#else
                 certificate = new X509Certificate2(certData);
+#endif
 
                 if (IsReadOnly)
                 {
