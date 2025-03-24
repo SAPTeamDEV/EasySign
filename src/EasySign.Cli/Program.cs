@@ -11,7 +11,7 @@ namespace SAPTeam.EasySign.Cli
 {
     internal class Program
     {
-        public static Bundle Bundle { get; set; }
+        public static Bundle? Bundle { get; set; }
 
         static RootCommand GetCommands()
         {
@@ -132,6 +132,11 @@ namespace SAPTeam.EasySign.Cli
 
         static void Add()
         {
+            if (Bundle == null)
+            {
+                throw new ApplicationException("Bundle is not initialized");
+            }
+
             AnsiConsole.Status()
                 .AutoRefresh(true)
                 .Spinner(Spinner.Known.Default)
@@ -154,6 +159,11 @@ namespace SAPTeam.EasySign.Cli
 
         static void Sign(X509Certificate2Collection certificates)
         {
+            if (Bundle == null)
+            {
+                throw new ApplicationException("Bundle is not initialized");
+            }
+
             AnsiConsole.Status()
                 .AutoRefresh(true)
                 .Spinner(Spinner.Known.Default)
@@ -200,6 +210,11 @@ namespace SAPTeam.EasySign.Cli
 
         private static bool VerifyCertificate(X509Certificate2 certificate)
         {
+            if (Bundle == null)
+            {
+                throw new ApplicationException("Bundle is not initialized");
+            }
+
             List<bool> verifyResults = new();
 
             var defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
@@ -239,6 +254,11 @@ namespace SAPTeam.EasySign.Cli
 
         static void Verify()
         {
+            if (Bundle == null)
+            {
+                throw new ApplicationException("Bundle is not initialized");
+            }
+
             var colorDict = new Dictionary<string, Color>()
             {
                 ["file_verified"] = Color.MediumSpringGreen,
@@ -365,9 +385,10 @@ namespace SAPTeam.EasySign.Cli
 
             while (!folders.IsEmpty)
             {
-                folders.TryDequeue(out string currentDir);
-                string[] subDirs;
-                string[] files = null;
+                if (!folders.TryDequeue(out string? currentDir)) continue;
+
+                string[] subDirs = Array.Empty<string>();
+                string[] files = Array.Empty<string>();
 
                 try
                 {
@@ -376,12 +397,9 @@ namespace SAPTeam.EasySign.Cli
                 catch (UnauthorizedAccessException) { }
                 catch (DirectoryNotFoundException) { }
 
-                if (files != null)
+                foreach (string file in files)
                 {
-                    foreach (string file in files)
-                    {
-                        yield return file;
-                    }
+                    yield return file;
                 }
 
                 try

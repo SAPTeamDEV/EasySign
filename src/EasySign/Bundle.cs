@@ -19,7 +19,7 @@ namespace SAPTeam.EasySign
     public class Bundle
     {
         private readonly string bundleName = ".eSign";
-        private byte[] rawZipContents = null;
+        private byte[]? rawZipContents = null;
 
         /// <summary>
         /// Gets the root path of the bundle. This path used for relative path resolution.
@@ -90,7 +90,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Occurs when the bundle file is being updated.
         /// </summary>
-        public event Action<ZipArchive> OnUpdating;
+        public event Action<ZipArchive>? OnUpdating;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Bundle"/> class with the specified root path and bundle name.
@@ -132,7 +132,9 @@ namespace SAPTeam.EasySign
 
             if (IsLoadedFromMemory)
             {
+#pragma warning disable CS8604 // Possible null reference argument.
                 var ms = new MemoryStream(rawZipContents);
+#pragma warning restore CS8604 // Possible null reference argument.
                 return new ZipArchive(ms, mode);
             }
             else
@@ -185,19 +187,19 @@ namespace SAPTeam.EasySign
         /// <param name="zip">The <see cref="ZipArchive"/> to read from.</param>
         protected virtual void ReadBundle(ZipArchive zip)
         {
-            ZipArchiveEntry entry;
+            ZipArchiveEntry? entry;
             if ((entry = zip.GetEntry(".manifest.ec")) != null)
 #if NET6_0_OR_GREATER
-                Manifest = JsonSerializer.Deserialize(entry.Open(), typeof(Manifest), SourceGenerationManifestContext.Default) as Manifest;
+                Manifest = JsonSerializer.Deserialize(entry.Open(), typeof(Manifest), SourceGenerationManifestContext.Default) as Manifest ?? new Manifest();
 #else
-                Manifest = JsonSerializer.Deserialize<Manifest>(entry.Open(), SerializerOptions);
+                Manifest = JsonSerializer.Deserialize<Manifest>(entry.Open(), SerializerOptions) ?? new Manifest();;
 #endif
 
             if ((entry = zip.GetEntry(".signatures.ec")) != null)
 #if NET6_0_OR_GREATER
-                Signatures = JsonSerializer.Deserialize(entry.Open(), typeof(Signatures), SourceGenerationSignaturesContext.Default) as Signatures;
+                Signatures = JsonSerializer.Deserialize(entry.Open(), typeof(Signatures), SourceGenerationSignaturesContext.Default) as Signatures ?? new Signatures();
 #else
-                Signatures = JsonSerializer.Deserialize<Signatures>(entry.Open(), SerializerOptions);
+                Signatures = JsonSerializer.Deserialize<Signatures>(entry.Open(), SerializerOptions) ?? new Signatures();
 #endif
         }
 
@@ -209,7 +211,7 @@ namespace SAPTeam.EasySign
         /// <param name="path">The path of the file to add.</param>
         /// <param name="destinationPath">The destination path within the bundle. Ignore when <see cref="Manifest.StoreOriginalFiles"/> is <see langword="false"/></param>
         /// <param name="rootPath">The root path for relative paths.</param>
-        public void AddEntry(string path, string destinationPath = "./", string rootPath = null)
+        public void AddEntry(string path, string destinationPath = "./", string? rootPath = null)
         {
             EnsureWritable();
 
@@ -299,6 +301,8 @@ namespace SAPTeam.EasySign
             X509Certificate2 certificate = GetCertificate(certificateHash);
             var pubKey = certificate.GetRSAPublicKey();
 
+            if (pubKey == null) return false;
+
 #if NET6_0_OR_GREATER
             var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
 #else
@@ -315,7 +319,7 @@ namespace SAPTeam.EasySign
         /// <param name="statuses">The chain statuses of the certificate.</param>
         /// <param name="policy">The chain policy to use for verification.</param>
         /// <returns>True if the certificate is valid; otherwise, false.</returns>
-        public bool VerifyCertificate(string certificateHash, out X509ChainStatus[] statuses, X509ChainPolicy policy = null)
+        public bool VerifyCertificate(string certificateHash, out X509ChainStatus[] statuses, X509ChainPolicy? policy = null)
         {
             X509Certificate2 certificate = GetCertificate(certificateHash);
             return VerifyCertificate(certificate, out statuses, policy);
@@ -327,7 +331,7 @@ namespace SAPTeam.EasySign
         /// <param name="certificateHash">The hash of the certificate to verify.</param>
         /// <param name="policy">The chain policy to use for verification.</param>
         /// <returns>True if the certificate is valid; otherwise, false.</returns>
-        public bool VerifyCertificate(string certificateHash, X509ChainPolicy policy = null)
+        public bool VerifyCertificate(string certificateHash, X509ChainPolicy? policy = null)
         {
             return VerifyCertificate(certificateHash, out _, policy);
         }
@@ -339,7 +343,7 @@ namespace SAPTeam.EasySign
         /// <param name="statuses">The chain statuses of the certificate.</param>
         /// <param name="policy">The chain policy to use for verification.</param>
         /// <returns>True if the certificate is valid; otherwise, false.</returns>
-        public bool VerifyCertificate(X509Certificate2 certificate, out X509ChainStatus[] statuses, X509ChainPolicy policy = null)
+        public bool VerifyCertificate(X509Certificate2 certificate, out X509ChainStatus[] statuses, X509ChainPolicy? policy = null)
         {
             X509Chain chain = new X509Chain
             {
@@ -357,7 +361,7 @@ namespace SAPTeam.EasySign
         /// <param name="certificate">The certificate to verify.</param>
         /// <param name="policy">The chain policy to use for verification.</param>
         /// <returns>True if the certificate is valid; otherwise, false.</returns>
-        public bool VerifyCertificate(X509Certificate2 certificate, X509ChainPolicy policy = null)
+        public bool VerifyCertificate(X509Certificate2 certificate, X509ChainPolicy? policy = null)
         {
             return VerifyCertificate(certificate, out _, policy);
         }
@@ -369,7 +373,7 @@ namespace SAPTeam.EasySign
         /// <returns>The certificate.</returns>
         public X509Certificate2 GetCertificate(string certificateHash)
         {
-            if (!certCache.TryGetValue(certificateHash, out X509Certificate2 certificate))
+            if (!certCache.TryGetValue(certificateHash, out X509Certificate2? certificate))
             {
                 using var zip = OpenZipArchive();
                 var certData = ReadEntry(zip, certificateHash);
@@ -389,7 +393,8 @@ namespace SAPTeam.EasySign
             if (Manifest.StoreOriginalFiles)
             {
                 using var zip = OpenZipArchive();
-                return zip.GetEntry(entryName).Open();
+                var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
+                return entry.Open();
             }
             else
             {
@@ -486,7 +491,8 @@ namespace SAPTeam.EasySign
         {
             if (!fileCache.TryGetValue(entryName, out var data))
             {
-                using var stream = zip.GetEntry(entryName).Open();
+                var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
+                using var stream = entry.Open();
                 data = ReadStream(stream);
 
                 if (IsReadOnly)
@@ -517,14 +523,14 @@ namespace SAPTeam.EasySign
         /// <param name="data">The data to write.</param>
         protected void WriteEntry(ZipArchive zip, string entryName, byte[] data)
         {
-            ZipArchiveEntry tempEntry;
+            ZipArchiveEntry? tempEntry;
             if ((tempEntry = zip.GetEntry(entryName)) != null)
                 tempEntry.Delete();
 
 #if NET6_0_OR_GREATER
             ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.SmallestSize);
 #else
-                ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
+            ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
 #endif
 
             using var stream = entry.Open();
