@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SAPTeam.EasySign
 {
@@ -36,6 +37,11 @@ namespace SAPTeam.EasySign
             WriteIndented = false,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
         };
+
+        /// <summary>
+        /// Gets the logger to use for logging.
+        /// </summary>
+        protected ILogger Logger { get; }
 
         /// <summary>
         /// Gets the root path of the bundle. This path used for relative path resolution.
@@ -87,7 +93,8 @@ namespace SAPTeam.EasySign
         /// </summary>
         /// <param name="rootPath">The root path of the bundle.</param>
         /// <param name="bundleName">The name of the bundle.</param>
-        public Bundle(string rootPath, string bundleName) : this(rootPath)
+        /// <param name="logger">The logger to use for logging.</param>
+        public Bundle(string rootPath, string bundleName, ILogger? logger = null) : this(rootPath, logger)
         {
             _bundleName = bundleName;
         }
@@ -96,9 +103,11 @@ namespace SAPTeam.EasySign
         /// Initializes a new instance of the <see cref="Bundle"/> class with the specified root path and default bundle name.
         /// </summary>
         /// <param name="rootPath">The root path of the bundle.</param>
-        public Bundle(string rootPath)
+        /// <param name="logger">The logger to use for logging.</param>
+        public Bundle(string rootPath, ILogger? logger = null)
         {
             RootPath = Path.GetFullPath(rootPath);
+            Logger = logger ?? NullLogger.Instance;
         }
 
         /// <summary>
@@ -107,7 +116,9 @@ namespace SAPTeam.EasySign
         private void EnsureWritable()
         {
             if (IsReadOnly)
+            {
                 throw new InvalidOperationException("Bundle is read-only");
+            }
         }
 
         /// <summary>
@@ -117,16 +128,21 @@ namespace SAPTeam.EasySign
         /// <returns>A <see cref="ZipArchive"/> for the bundle.</returns>
         public ZipArchive OpenZipArchive(ZipArchiveMode mode = ZipArchiveMode.Read)
         {
-            if (mode != ZipArchiveMode.Read)
-                EnsureWritable();
+            if (mode != ZipArchiveMode.Read) EnsureWritable();
+
+            Logger.LogDebug("Opening bundle archive in {Mode} mode", mode);
 
             if (IsLoadedFromMemory)
             {
+                Logger.LogDebug("Loading bundle from memory with {Size} bytes", _rawZipContents.Length);
+
                 var ms = new MemoryStream(_rawZipContents);
                 return new ZipArchive(ms, mode);
             }
             else
             {
+                Logger.LogDebug("Loading bundle from file: {file}", BundlePath);
+
                 return ZipFile.Open(BundlePath, mode);
             }
         }
@@ -144,9 +160,11 @@ namespace SAPTeam.EasySign
 
             IsReadOnly = readOnly;
             using var zip = OpenZipArchive();
-            ReadBundle(zip);
+            Parse(zip);
 
             IsLoaded = true;
+
+            Logger.LogInformation("Bundle loaded from file: {file}", BundlePath);
         }
 
         /// <summary>
@@ -164,23 +182,41 @@ namespace SAPTeam.EasySign
             _rawZipContents = bundleContent;
 
             using var zip = OpenZipArchive();
-            ReadBundle(zip);
+            Parse(zip);
 
             IsLoaded = true;
+
+            Logger.LogInformation("Bundle loaded from memory with {Size} bytes", bundleContent.Length);
         }
 
         /// <summary>
-        /// Reads the bundle from a <see cref="ZipArchive"/>.
+        /// Parses the bundle contents from a <see cref="ZipArchive"/>.
         /// </summary>
         /// <param name="zip">The <see cref="ZipArchive"/> to read from.</param>
-        protected virtual void ReadBundle(ZipArchive zip)
+        protected virtual void Parse(ZipArchive zip)
         {
+            Logger.LogInformation("Parsing bundle contents");
+
             ZipArchiveEntry? entry;
             if ((entry = zip.GetEntry(".manifest.ec")) != null)
+            {
+                Logger.LogDebug("Parsing manifest");
                 Manifest = JsonSerializer.Deserialize(entry.Open(), typeof(Manifest), SourceGenerationManifestContext.Default) as Manifest ?? new Manifest();
+            }
+            else
+            {
+                Logger.LogWarning("Manifest not found in the bundle");
+            }
 
             if ((entry = zip.GetEntry(".signatures.ec")) != null)
+            {
+                Logger.LogDebug("Parsing signatures");
                 Signatures = JsonSerializer.Deserialize(entry.Open(), typeof(Signatures), SourceGenerationSignaturesContext.Default) as Signatures ?? new Signatures();
+            }
+            else
+            {
+                Logger.LogWarning("Signatures not found in the bundle");
+            }
         }
 
         /// <summary>
@@ -194,6 +230,8 @@ namespace SAPTeam.EasySign
         public void AddEntry(string path, string destinationPath = "./", string? rootPath = null)
         {
             EnsureWritable();
+
+            Logger.LogInformation("Adding file: {path}", path);
 
             if (!destinationPath.EndsWith('/'))
                 destinationPath += "/";
@@ -210,10 +248,12 @@ namespace SAPTeam.EasySign
                 name = destinationPath + name;
             }
 
+            Logger.LogDebug("Adding entry: {name} with hash {hash} to manifest", name, string.Format("X2", hash));
             Manifest.AddEntry(name, hash);
 
             if (Manifest.StoreOriginalFiles)
             {
+                Logger.LogDebug("Embedding file: {name} in the bundle", name);
                 _newEmbeddedFiles[name] = File.ReadAllBytes(path);
             }
         }
@@ -227,6 +267,8 @@ namespace SAPTeam.EasySign
         {
             EnsureWritable();
 
+            Logger.LogInformation("Signing bundle with certificate: {name}", certificate.Subject);
+
             var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
             var signature = privateKey.SignData(manifestData, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
             var cert = Convert.ToBase64String(certificate.Export(X509ContentType.Cert));
@@ -238,7 +280,10 @@ namespace SAPTeam.EasySign
             pemBuilder.AppendLine("-----END CERTIFICATE-----");
             string pemContents = pemBuilder.ToString();
 
+            Logger.LogDebug("Embedding file: {name} in the bundle", name);
             _newEmbeddedFiles[name] = Encoding.UTF8.GetBytes(pemContents);
+
+            Logger.LogDebug("Adding signature for certificate: {name} to signatures", name);
             Signatures.Entries[name] = signature;
         }
 
@@ -249,21 +294,31 @@ namespace SAPTeam.EasySign
         /// <returns>True if the file is valid; otherwise, false.</returns>
         public bool VerifyFileIntegrity(string entryName)
         {
+            Logger.LogInformation("Verifying file integrity: {name}", entryName);
+
             byte[] hash;
 
             if (Manifest.StoreOriginalFiles)
             {
+                Logger.LogDebug("Reading file: {name} from the bundle", entryName);
+
                 using var zip = OpenZipArchive();
                 hash = ComputeSHA512Hash(ReadEntry(zip, entryName));
             }
             else
             {
+                Logger.LogDebug("Reading file: {name} from the file system", entryName);
+
                 string path = Path.GetFullPath(entryName, RootPath);
                 using var file = File.OpenRead(path);
                 hash = ComputeSHA512Hash(file);
             }
 
-            return Manifest.GetConcurrentDictionary()[entryName].SequenceEqual(hash);
+            bool result = Manifest.GetConcurrentDictionary()[entryName].SequenceEqual(hash);
+
+            Logger.LogInformation("File integrity verification result for {name}: {result}", entryName, result);
+
+            return result;
         }
 
         /// <summary>
@@ -276,11 +331,16 @@ namespace SAPTeam.EasySign
             X509Certificate2 certificate = GetCertificate(certificateHash);
             var pubKey = certificate.GetRSAPublicKey();
 
+            Logger.LogInformation("Verifying signature with certificate: {name}", certificate.Subject);
+
             if (pubKey == null) return false;
 
             var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
+            bool result = pubKey.VerifyData(manifestData, Signatures.Entries[certificateHash], HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
-            return pubKey.VerifyData(manifestData, Signatures.Entries[certificateHash], HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+            Logger.LogInformation("Signature verification result for certificate {name}: {result}", certificate.Subject, result);
+
+            return result;
         }
 
         /// <summary>
@@ -321,8 +381,18 @@ namespace SAPTeam.EasySign
                 ChainPolicy = policy ?? new X509ChainPolicy()
             };
 
+            Logger.LogInformation("Verifying certificate: {name}", certificate.Subject);
+
+            if (policy != null)
+            {
+                Logger.LogDebug("Using custom chain policy for verification");
+            }
+
             bool isValid = chain.Build(certificate);
             statuses = chain.ChainStatus;
+
+            Logger.LogInformation("Certificate verification result for {name}: {result}", certificate.Subject, isValid);
+
             return isValid;
         }
 
@@ -338,20 +408,34 @@ namespace SAPTeam.EasySign
         }
 
         /// <summary>
-        /// Gets a certificate from the bundle using the specified certificate hash.
+        /// Gets a certificate from the bundle using the specified certificate hash. and caches the certificate if the bundle is Read-only.
         /// </summary>
         /// <param name="certificateHash">The hash of the certificate to get.</param>
         /// <returns>The certificate.</returns>
         public X509Certificate2 GetCertificate(string certificateHash)
         {
+            Logger.LogInformation("Getting certificate with hash: {hash}", certificateHash);
+
             if (!_certCache.TryGetValue(certificateHash, out X509Certificate2? certificate))
             {
+                Logger.LogDebug("Certificate with hash {hash} not found in cache", certificateHash);
+                Logger.LogDebug("Reading certificate with hash {hash} from the bundle", certificateHash);
                 using var zip = OpenZipArchive();
                 var certData = ReadEntry(zip, certificateHash);
-                _certCache[certificateHash] = certificate = new X509Certificate2(certData);
+                certificate = new X509Certificate2(certData);
+
+                if (IsReadOnly)
+                {
+                    Logger.LogDebug("Caching certificate with hash {hash}", certificateHash);
+                    _certCache[certificateHash] = certificate;
+                }
+            }
+            else
+            {
+                Logger.LogDebug("Certificate with hash {hash} found in cache", certificateHash);
             }
 
-            return certificate;
+                return certificate;
         }
 
         /// <summary>
@@ -361,14 +445,20 @@ namespace SAPTeam.EasySign
         /// <returns>A stream for the file.</returns>
         public Stream GetFileStream(string entryName)
         {
+            Logger.LogInformation("Getting file stream for entry: {name}", entryName);
+
             if (Manifest.StoreOriginalFiles)
             {
+                Logger.LogDebug("Reading file: {name} from the bundle", entryName);
+
                 using var zip = OpenZipArchive();
                 var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
                 return entry.Open();
             }
             else
             {
+                Logger.LogDebug("Reading file: {name} from the file system", entryName);
+
                 string path = Path.GetFullPath(entryName, RootPath);
                 return File.OpenRead(path);
             }
@@ -381,13 +471,19 @@ namespace SAPTeam.EasySign
         /// <returns>The bytes of the file.</returns>
         public byte[] GetFileBytes(string entryName)
         {
+            Logger.LogInformation("Getting file data for entry: {name}", entryName);
+
             if (Manifest.StoreOriginalFiles)
             {
+                Logger.LogDebug("Reading file: {name} from the bundle", entryName);
+
                 using var zip = OpenZipArchive();
                 return ReadEntry(zip, entryName);
             }
             else
             {
+                Logger.LogDebug("Reading file: {name} from the file system", entryName);
+
                 string path = Path.GetFullPath(entryName, RootPath);
                 return ReadStream(File.OpenRead(path));
             }
@@ -401,6 +497,8 @@ namespace SAPTeam.EasySign
         /// <returns>A byte array containing the exported data.</returns>
         protected byte[] Export(object structuredData, JsonSerializerContext jsonSerializerContext)
         {
+            Logger.LogInformation("Exporting data from a {type} object as byte array", structuredData.GetType().Name);
+
             var data = JsonSerializer.Serialize(structuredData, structuredData.GetType(), jsonSerializerContext);
             return Encoding.UTF8.GetBytes(data);
         }
@@ -418,6 +516,8 @@ namespace SAPTeam.EasySign
 #endif
         protected byte[] Export(object structuredData)
         {
+            Logger.LogInformation("Exporting data from a {type} object as byte array", structuredData.GetType().Name);
+
             var data = JsonSerializer.Serialize(structuredData, SerializerOptions);
             return Encoding.UTF8.GetBytes(data);
         }
@@ -429,16 +529,22 @@ namespace SAPTeam.EasySign
         {
             EnsureWritable();
 
+            Logger.LogInformation("Updating bundle file: {file}", BundlePath);
+
             using (ZipArchive zip = OpenZipArchive(ZipArchiveMode.Update))
             {
+                Logger.LogDebug("Raising OnUpdating event");
                 OnUpdating?.Invoke(zip);
 
+                Logger.LogDebug("Writing manifest to the bundle");
                 var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
                 WriteEntry(zip, ".manifest.ec", manifestData);
 
+                Logger.LogDebug("Writing signatures to the bundle");
                 var signatureData = Export(Signatures, SourceGenerationSignaturesContext.Default);
                 WriteEntry(zip, ".signatures.ec", signatureData);
 
+                Logger.LogDebug("Writing new files to the bundle");
                 foreach (var newFile in _newEmbeddedFiles)
                 {
                     WriteEntry(zip, newFile.Key, newFile.Value);
@@ -456,15 +562,24 @@ namespace SAPTeam.EasySign
         {
             if (!_fileCache.TryGetValue(entryName, out var data))
             {
+                Logger.LogDebug("Entry {name} not found in cache", entryName);
+                Logger.LogDebug("Reading entry: {name} from the bundle", entryName);
                 var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
                 using var stream = entry.Open();
                 data = ReadStream(stream);
 
                 if (IsReadOnly)
+                {
+                    Logger.LogDebug("Caching entry: {name}", entryName);
                     _fileCache[entryName] = data;
+                }    
+            }
+            else
+            {
+                Logger.LogDebug("Entry {name} found in cache", entryName);
             }
 
-            return data;
+                return data;
         }
 
         /// <summary>
@@ -488,19 +603,29 @@ namespace SAPTeam.EasySign
         /// <param name="data">The data to write.</param>
         protected void WriteEntry(ZipArchive zip, string entryName, byte[] data)
         {
+            Logger.LogDebug("Writing entry: {name} to the bundle", entryName);
+
             ZipArchiveEntry? tempEntry;
             if ((tempEntry = zip.GetEntry(entryName)) != null)
+            {
+                Logger.LogDebug("Deleting existing entry: {name}", entryName);
                 tempEntry.Delete();
+            }
 
 #if NET6_0_OR_GREATER
-            ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.SmallestSize);
+            var compressionLevel = CompressionLevel.SmallestSize;
 #else
-            ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
+            var compressionLevel = CompressionLevel.Optimal;
 #endif
+
+            Logger.LogDebug("Creating new entry: {name} in the bundle with compression level {level}", entryName, compressionLevel);
+            ZipArchiveEntry entry = zip.CreateEntry(entryName, compressionLevel);
 
             using var stream = entry.Open();
             stream.Write(data, 0, data.Length);
             stream.Flush();
+
+            Logger.LogInformation("Wrote entry: {name} with {size} bytes to the bundle", entryName, data.Length);
         }
 
         /// <summary>
