@@ -20,6 +20,11 @@
         "resolved": "2.0.0-beta4.22272.1",
         "contentHash": "1uqED/q2H0kKoLJ4+hI2iPSBSEdTuhfCYADeJrAqERmiGQ2NNacYKRNEQ+gFbU4glgVyK8rxI+ZOe1onEtr/Pg=="
       },
+      "Ensure.That": {
+        "type": "Transitive",
+        "resolved": "10.1.0",
+        "contentHash": "rzTMSs0lQnu0WsesvTjs/zDzqiZXb9r5dv+wFQcPg/iIZqXb5BzwpIWEwi8Q3HA0TS4ytRcY129aSek6IzuOmA=="
+      },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
         "resolved": "8.0.1",
@@ -85,6 +90,7 @@
       "SAPTeam.EasySign": {
         "type": "Project",
         "dependencies": {
+          "Ensure.That": "[10.1.0, )",
           "Microsoft.Extensions.Logging": "[8.0.1, )"
         }
       }
@@ -107,6 +113,11 @@
         "requested": "[2.0.0-beta4.22272.1, )",
         "resolved": "2.0.0-beta4.22272.1",
         "contentHash": "1uqED/q2H0kKoLJ4+hI2iPSBSEdTuhfCYADeJrAqERmiGQ2NNacYKRNEQ+gFbU4glgVyK8rxI+ZOe1onEtr/Pg=="
+      },
+      "Ensure.That": {
+        "type": "Transitive",
+        "resolved": "10.1.0",
+        "contentHash": "rzTMSs0lQnu0WsesvTjs/zDzqiZXb9r5dv+wFQcPg/iIZqXb5BzwpIWEwi8Q3HA0TS4ytRcY129aSek6IzuOmA=="
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
@@ -162,6 +173,7 @@
       "SAPTeam.EasySign": {
         "type": "Project",
         "dependencies": {
+          "Ensure.That": "[10.1.0, )",
           "Microsoft.Extensions.Logging": "[9.0.3, )"
         }
       }
@@ -184,6 +196,11 @@
         "requested": "[2.0.0-beta4.22272.1, )",
         "resolved": "2.0.0-beta4.22272.1",
         "contentHash": "1uqED/q2H0kKoLJ4+hI2iPSBSEdTuhfCYADeJrAqERmiGQ2NNacYKRNEQ+gFbU4glgVyK8rxI+ZOe1onEtr/Pg=="
+      },
+      "Ensure.That": {
+        "type": "Transitive",
+        "resolved": "10.1.0",
+        "contentHash": "rzTMSs0lQnu0WsesvTjs/zDzqiZXb9r5dv+wFQcPg/iIZqXb5BzwpIWEwi8Q3HA0TS4ytRcY129aSek6IzuOmA=="
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
@@ -233,6 +250,7 @@
       "SAPTeam.EasySign": {
         "type": "Project",
         "dependencies": {
+          "Ensure.That": "[10.1.0, )",
           "Microsoft.Extensions.Logging": "[9.0.3, )"
         }
       }

@@ -12,6 +12,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
+using EnsureThat;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -96,6 +98,8 @@ namespace SAPTeam.EasySign
         /// <param name="logger">The logger to use for logging.</param>
         public Bundle(string rootPath, string bundleName, ILogger? logger = null) : this(rootPath, logger)
         {
+            Ensure.String.IsNotNullOrEmpty(bundleName.Trim(), nameof(bundleName));
+
             _bundleName = bundleName;
         }
 
@@ -106,6 +110,8 @@ namespace SAPTeam.EasySign
         /// <param name="logger">The logger to use for logging.</param>
         public Bundle(string rootPath, ILogger? logger = null)
         {
+            Ensure.String.IsNotNullOrEmpty(rootPath.Trim(), nameof(rootPath));
+
             RootPath = Path.GetFullPath(rootPath);
             Logger = logger ?? NullLogger.Instance;
         }
@@ -115,10 +121,16 @@ namespace SAPTeam.EasySign
         /// </summary>
         private void EnsureWritable()
         {
+            Logger.LogDebug("Checking if bundle is read-only");
+
             if (IsReadOnly)
             {
-                throw new InvalidOperationException("Bundle is read-only");
+                Logger.LogError("Bundle is read-only");
+
+                throw new InvalidOperationException("Bundle is read-only"); ;
             }
+
+            Logger.LogDebug("Bundle is writable");
         }
 
         /// <summary>
@@ -178,6 +190,8 @@ namespace SAPTeam.EasySign
                 throw new InvalidOperationException("The bundle is already loaded");
             }
 
+            Ensure.Collection.HasItems(bundleContent, nameof(bundleContent));
+
             IsReadOnly = true;
             _rawZipContents = bundleContent;
 
@@ -231,6 +245,13 @@ namespace SAPTeam.EasySign
         {
             EnsureWritable();
 
+            Ensure.String.IsNotNullOrEmpty(path.Trim(), nameof(path));
+
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException("File not found", path);
+            }
+
             Logger.LogInformation("Adding file: {path}", path);
 
             if (!destinationPath.EndsWith('/'))
@@ -267,10 +288,12 @@ namespace SAPTeam.EasySign
         {
             EnsureWritable();
 
+            Ensure.Any.IsNotNull(certificate, nameof(certificate));
+            Ensure.Any.IsNotNull(privateKey, nameof(privateKey));
+
             Logger.LogInformation("Signing bundle with certificate: {name}", certificate.Subject);
 
-            var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
-            var signature = privateKey.SignData(manifestData, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+            Logger.LogDebug("Exporting certificate");
             var cert = Convert.ToBase64String(certificate.Export(X509ContentType.Cert));
             var name = certificate.GetCertHashString();
 
@@ -279,6 +302,10 @@ namespace SAPTeam.EasySign
             pemBuilder.AppendLine(cert);
             pemBuilder.AppendLine("-----END CERTIFICATE-----");
             string pemContents = pemBuilder.ToString();
+
+            Logger.LogDebug("Signing manifest");
+            var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
+            var signature = privateKey.SignData(manifestData, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
             Logger.LogDebug("Embedding file: {name} in the bundle", name);
             _newEmbeddedFiles[name] = Encoding.UTF8.GetBytes(pemContents);
@@ -294,6 +321,8 @@ namespace SAPTeam.EasySign
         /// <returns>True if the file is valid; otherwise, false.</returns>
         public bool VerifyFileIntegrity(string entryName)
         {
+            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+
             Logger.LogInformation("Verifying file integrity: {name}", entryName);
 
             byte[] hash;
@@ -328,15 +357,16 @@ namespace SAPTeam.EasySign
         /// <returns>True if the signature is valid; otherwise, false.</returns>
         public bool VerifySignature(string certificateHash)
         {
+            Ensure.String.IsNotNullOrEmpty(certificateHash.Trim(), nameof(certificateHash));
+            byte[] hash = Signatures.Entries[certificateHash];
+
             X509Certificate2 certificate = GetCertificate(certificateHash);
-            var pubKey = certificate.GetRSAPublicKey();
+            var pubKey = certificate.GetRSAPublicKey() ?? throw new CryptographicException("Public key not found");
 
             Logger.LogInformation("Verifying signature with certificate: {name}", certificate.Subject);
 
-            if (pubKey == null) return false;
-
             var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
-            bool result = pubKey.VerifyData(manifestData, Signatures.Entries[certificateHash], HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+            bool result = pubKey.VerifyData(manifestData, hash, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
             Logger.LogInformation("Signature verification result for certificate {name}: {result}", certificate.Subject, result);
 
@@ -352,6 +382,8 @@ namespace SAPTeam.EasySign
         /// <returns>True if the certificate is valid; otherwise, false.</returns>
         public bool VerifyCertificate(string certificateHash, out X509ChainStatus[] statuses, X509ChainPolicy? policy = null)
         {
+            Ensure.String.IsNotNullOrEmpty(certificateHash.Trim(), nameof(certificateHash));
+
             X509Certificate2 certificate = GetCertificate(certificateHash);
             return VerifyCertificate(certificate, out statuses, policy);
         }
@@ -376,6 +408,8 @@ namespace SAPTeam.EasySign
         /// <returns>True if the certificate is valid; otherwise, false.</returns>
         public bool VerifyCertificate(X509Certificate2 certificate, out X509ChainStatus[] statuses, X509ChainPolicy? policy = null)
         {
+            Ensure.Any.IsNotNull(certificate, nameof(certificate));
+
             X509Chain chain = new X509Chain
             {
                 ChainPolicy = policy ?? new X509ChainPolicy()
@@ -414,6 +448,8 @@ namespace SAPTeam.EasySign
         /// <returns>The certificate.</returns>
         public X509Certificate2 GetCertificate(string certificateHash)
         {
+            Ensure.String.IsNotNullOrEmpty(certificateHash.Trim(), nameof(certificateHash));
+
             Logger.LogInformation("Getting certificate with hash: {hash}", certificateHash);
 
             if (!_certCache.TryGetValue(certificateHash, out X509Certificate2? certificate))
@@ -435,7 +471,7 @@ namespace SAPTeam.EasySign
                 Logger.LogDebug("Certificate with hash {hash} found in cache", certificateHash);
             }
 
-                return certificate;
+            return certificate;
         }
 
         /// <summary>
@@ -445,6 +481,8 @@ namespace SAPTeam.EasySign
         /// <returns>A stream for the file.</returns>
         public Stream GetFileStream(string entryName)
         {
+            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+
             Logger.LogInformation("Getting file stream for entry: {name}", entryName);
 
             if (Manifest.StoreOriginalFiles)
@@ -471,6 +509,8 @@ namespace SAPTeam.EasySign
         /// <returns>The bytes of the file.</returns>
         public byte[] GetFileBytes(string entryName)
         {
+            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+
             Logger.LogInformation("Getting file data for entry: {name}", entryName);
 
             if (Manifest.StoreOriginalFiles)
@@ -497,6 +537,9 @@ namespace SAPTeam.EasySign
         /// <returns>A byte array containing the exported data.</returns>
         protected byte[] Export(object structuredData, JsonSerializerContext jsonSerializerContext)
         {
+            Ensure.Any.IsNotNull(structuredData, nameof(structuredData));
+            Ensure.Any.IsNotNull(jsonSerializerContext, nameof(jsonSerializerContext));
+
             Logger.LogInformation("Exporting data from a {type} object as byte array", structuredData.GetType().Name);
 
             var data = JsonSerializer.Serialize(structuredData, structuredData.GetType(), jsonSerializerContext);
@@ -516,6 +559,8 @@ namespace SAPTeam.EasySign
 #endif
         protected byte[] Export(object structuredData)
         {
+            Ensure.Any.IsNotNull(structuredData, nameof(structuredData));
+
             Logger.LogInformation("Exporting data from a {type} object as byte array", structuredData.GetType().Name);
 
             var data = JsonSerializer.Serialize(structuredData, SerializerOptions);
@@ -560,6 +605,9 @@ namespace SAPTeam.EasySign
         /// <returns>A byte array containing the entry data.</returns>
         protected byte[] ReadEntry(ZipArchive zip, string entryName)
         {
+            Ensure.Any.IsNotNull(zip, nameof(zip));
+            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+
             if (!_fileCache.TryGetValue(entryName, out var data))
             {
                 Logger.LogDebug("Entry {name} not found in cache", entryName);
@@ -589,6 +637,8 @@ namespace SAPTeam.EasySign
         /// <returns>A byte array containing the stream data.</returns>
         private static byte[] ReadStream(Stream stream)
         {
+            Ensure.Any.IsNotNull(stream, nameof(stream));
+
             MemoryStream ms = new();
             stream.CopyTo(ms);
             return ms.ToArray();
@@ -603,6 +653,10 @@ namespace SAPTeam.EasySign
         /// <param name="data">The data to write.</param>
         protected void WriteEntry(ZipArchive zip, string entryName, byte[] data)
         {
+            Ensure.Any.IsNotNull(zip, nameof(zip));
+            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+            Ensure.Collection.HasItems(data, nameof(data));
+
             Logger.LogDebug("Writing entry: {name} to the bundle", entryName);
 
             ZipArchiveEntry? tempEntry;
@@ -635,6 +689,8 @@ namespace SAPTeam.EasySign
         /// <returns>A byte array containing the hash.</returns>
         static byte[] ComputeSHA512Hash(Stream stream)
         {
+            Ensure.Any.IsNotNull(stream, nameof(stream));
+
             using var sha512 = SHA512.Create();
             return sha512.ComputeHash(stream);
         }
@@ -646,6 +702,8 @@ namespace SAPTeam.EasySign
         /// <returns>A byte array containing the hash.</returns>
         static byte[] ComputeSHA512Hash(byte[] data)
         {
+            Ensure.Collection.HasItems(data, nameof(data));
+
             using var sha512 = SHA512.Create();
             return sha512.ComputeHash(data);
         }
