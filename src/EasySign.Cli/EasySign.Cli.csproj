@@ -29,8 +29,6 @@
   
   <ItemGroup>
     <PackageReference Include="Nerdbank.GitVersioning" Version="3.7.115" PrivateAssets="All" />
-    <PackageReference Include="Spectre.Console" Version="0.49.1" />
-    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,7 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\EasySign\EasySign.csproj" />
+    <ProjectReference Include="..\EasySign.CommandLine\EasySign.CommandLine.csproj" />
   </ItemGroup>
   
 </Project>

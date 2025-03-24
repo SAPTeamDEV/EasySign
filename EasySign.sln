@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasySign", "src\EasySign\Ea
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasySign.Cli", "src\EasySign.Cli\EasySign.Cli.csproj", "{06B3FED1-E973-10C5-B01D-20CA5926CDB5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasySign.CommandLine", "src\EasySign.CommandLine\EasySign.CommandLine.csproj", "{469CED26-0714-F94E-59D1-CAC8348159A0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,6 +31,10 @@ Global
 		{06B3FED1-E973-10C5-B01D-20CA5926CDB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{06B3FED1-E973-10C5-B01D-20CA5926CDB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{06B3FED1-E973-10C5-B01D-20CA5926CDB5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{469CED26-0714-F94E-59D1-CAC8348159A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{469CED26-0714-F94E-59D1-CAC8348159A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{469CED26-0714-F94E-59D1-CAC8348159A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{469CED26-0714-F94E-59D1-CAC8348159A0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -36,6 +42,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{007900BB-36CE-7645-672E-74572EA2ADCB} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{06B3FED1-E973-10C5-B01D-20CA5926CDB5} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{469CED26-0714-F94E-59D1-CAC8348159A0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6BCA3873-BF41-4370-82BE-723E438DC241}

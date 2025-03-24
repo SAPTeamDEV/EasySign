@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net6.0;net8.0;net9.0</TargetFrameworks>
+    
+	  <AssemblyName>SAPTeam.EasySign.CommandLine</AssemblyName>
+    <RootNamespace>$(AssemblyName)</RootNamespace>
+    <PackageId>$(AssemblyName)</PackageId>
+	
+	  <Title>EasySign Command-Line Helper</Title>
+    <AssemblyTitle>EasySign Command-Line Helper</AssemblyTitle>
+	  <Product>Helper Library for console applications using EasySign.</Product>
+    <Description>A Library providing the EasySign API for console applications.</Description>
+    <PackageTags>sign;verify;certificate;console</PackageTags>
+	  <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EasySign\EasySign.csproj" />
+
+    <PackageReference Include="Spectre.Console" Version="0.49.1" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+  
+  <Import Project="$(RepoRootPath)\Library.props" />
+
+</Project>
