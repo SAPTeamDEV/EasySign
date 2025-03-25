@@ -22,6 +22,7 @@ namespace SAPTeam.EasySign.Cli
 
         public override void InitializeBundle(string bundlePath)
         {
+            Program.Logger.Information("Initializing bundle at {bundlePath}", bundlePath);
             Bundle = new Bundle(bundlePath, _logger);
         }
 
