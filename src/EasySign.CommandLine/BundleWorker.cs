@@ -44,25 +44,31 @@ namespace SAPTeam.EasySign.CommandLine
             _ = Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
             {
                 if (file == Bundle.BundlePath) return;
-
                 var entryName = Manifest.GetNormalizedEntryName(Path.GetRelativePath(Bundle.RootPath, file));
 
-                if (Bundle.Manifest.Entries.ContainsKey(entryName))
+                try
                 {
-                    if (!replace)
+                    if (Bundle.Manifest.Entries.ContainsKey(entryName))
                     {
-                        AnsiConsole.MarkupLine($"[{Color.Orange1}]Exists:[/] {entryName}");
-                        return;
-                    }
+                        if (!replace)
+                        {
+                            AnsiConsole.MarkupLine($"[{Color.Orange1}]Exists:[/] {entryName}");
+                            return;
+                        }
 
-                    Bundle.DeleteEntry(entryName);
-                    Bundle.AddEntry(file);
-                    AnsiConsole.MarkupLine($"[{Color.Cyan2}]Replaced:[/] {entryName}");
+                        Bundle.DeleteEntry(entryName);
+                        Bundle.AddEntry(file);
+                        AnsiConsole.MarkupLine($"[{Color.Cyan2}]Replaced:[/] {entryName}");
+                    }
+                    else
+                    {
+                        Bundle.AddEntry(file);
+                        AnsiConsole.MarkupLine($"[blue]Added:[/] {entryName}");
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Bundle.AddEntry(file);
-                    AnsiConsole.MarkupLine($"[blue]Added:[/] {entryName}");
+                    AnsiConsole.MarkupLine($"[{Color.Red}]Error:[/] {entryName} ({ex.GetType().Name}: {ex.Message})");
                 }
             });
 
