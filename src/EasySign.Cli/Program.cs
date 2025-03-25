@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Serilog;
+using Serilog.Extensions.Logging;
 
 using Spectre.Console;
 
@@ -30,22 +31,16 @@ namespace SAPTeam.EasySign.Cli
                 .MinimumLevel.Debug() // Minimum log level
                 .CreateLogger();
 
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging(configure =>
-            {
-                configure.ClearProviders(); // Clear default providers
-                configure.AddSerilog(Log.Logger.ForContext("Context", "Bundle"));
-            });
-
-            var serviceProvider = serviceCollection.BuildServiceProvider();
-
-            // Resolve an ILogger instance
-            var bundleLogger = serviceProvider.GetRequiredService<ILogger<Bundle>>();
-
             Logger = Log.Logger.ForContext("Context", "Main");
             Logger.Information("Starting EasySign CLI at {DateTime}", DateTime.Now);
 
-            var root = new BundleCommandProvider(bundleLogger).GetRootCommand();
+            var bundleLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "Bundle"))
+                .CreateLogger("CommandProvider");
+            
+            var commandProviderLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "CommandProvider"))
+                .CreateLogger("CommandProvider");
+
+            var root = new BundleCommandProvider(commandProviderLogger, bundleLogger).GetRootCommand();
             var exitCode = root.Invoke(args);
 
             Logger.Information("Shutting down EasySign CLI at {DateTime} with exit code {ExitCode}", DateTime.Now, exitCode);

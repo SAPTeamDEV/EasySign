@@ -13,17 +13,18 @@ namespace SAPTeam.EasySign.Cli
 {
     internal class BundleCommandProvider : CommandProvider<Bundle>
     {
-        ILogger _logger;
+        ILogger _bundleLogger;
 
-        public BundleCommandProvider(ILogger logger)
+        public BundleCommandProvider(ILogger logger, ILogger bundleLogger)
         {
-            _logger = logger;
+            Logger = logger;
+            _bundleLogger = bundleLogger;
         }
 
         public override void InitializeBundle(string bundlePath)
         {
-            Program.Logger.Information("Initializing bundle at {bundlePath}", bundlePath);
-            Bundle = new Bundle(bundlePath, _logger);
+            Logger.LogInformation("Initializing bundle at {bundlePath}", bundlePath);
+            Bundle = new Bundle(bundlePath, _bundleLogger);
         }
 
         public override RootCommand GetRootCommand()

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
+using Microsoft.Extensions.Logging;
+
 using Spectre.Console;
 
 namespace SAPTeam.EasySign.CommandLine
@@ -35,6 +37,8 @@ namespace SAPTeam.EasySign.CommandLine
         /// </param>
         protected virtual void RunAdd(StatusContext statusContext, bool replace, bool continueOnError)
         {
+            Logger.LogInformation("Running add command");
+
             if (Bundle == null)
             {
                 throw new ApplicationException("Bundle is not initialized");
@@ -42,17 +46,25 @@ namespace SAPTeam.EasySign.CommandLine
 
             if (!Bundle.IsLoaded && File.Exists(Bundle.BundlePath))
             {
+                Logger.LogDebug("A bundle file exists, loading bundle");
                 statusContext.Status("[yellow]Loading Bundle[/]");
                 Bundle.LoadFromFile(false);
             }
 
             statusContext.Status("[yellow]Adding Files[/]");
 
+            Logger.LogDebug("Discovering files in the directory: {RootPath}", Bundle.RootPath);
+            var foundFiles = Utilities.SafeEnumerateFiles(Bundle.RootPath, "*").ToArray();
+            Logger.LogInformation("Discovered {FileCount} files", foundFiles.Count());
+
+            Logger.LogInformation("Starting file adder multi-thread task");
             bool errorOccurred = false;
-            _ = Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), (file, state) =>
+            _ = Parallel.ForEach(foundFiles, (file, state) =>
             {
                 if (file == Bundle.BundlePath) return;
                 var entryName = Manifest.GetNormalizedEntryName(Path.GetRelativePath(Bundle.RootPath, file));
+
+                Logger.LogInformation("Processing file: {EntryName}", entryName);
 
                 try
                 {
@@ -60,17 +72,26 @@ namespace SAPTeam.EasySign.CommandLine
                     {
                         if (!replace)
                         {
+                            Logger.LogWarning("Entry already exists: {EntryName}", entryName);
                             AnsiConsole.MarkupLine($"[{Color.Orange1}]Exists:[/] {entryName}");
                             return;
                         }
 
+                        Logger.LogDebug("Replacing entry: {EntryName}", entryName);
+
                         Bundle.DeleteEntry(entryName);
                         Bundle.AddEntry(file);
+
+                        Logger.LogInformation("Entry: {EntryName} Replaced", entryName);
                         AnsiConsole.MarkupLine($"[{Color.Cyan2}]Replaced:[/] {entryName}");
                     }
                     else
                     {
+                        Logger.LogDebug("Adding entry: {EntryName}", entryName);
+                        
                         Bundle.AddEntry(file);
+
+                        Logger.LogInformation("Entry: {EntryName} Added", entryName);
                         AnsiConsole.MarkupLine($"[blue]Added:[/] {entryName}");
                     }
                 }
@@ -78,10 +99,12 @@ namespace SAPTeam.EasySign.CommandLine
                 {
                     errorOccurred = true;
 
+                    Logger.LogError(ex, "Error occurred while adding entry: {EntryName}", entryName);
                     AnsiConsole.MarkupLine($"[{Color.Red}]Error:[/] {entryName} ({ex.GetType().Name}: {ex.Message})");
 
                     if (!continueOnError)
                     {
+                        Logger.LogWarning("Stopping add operation due to error");
                         state.Stop();
                     }
                 }
@@ -94,13 +117,18 @@ namespace SAPTeam.EasySign.CommandLine
 
                 if (!continueOnError)
                 {
+                    Logger.LogWarning("Add operation aborted");
                     AnsiConsole.MarkupLine("[red]No changes were made to the bundle[/]");
                     return;
                 }
             }
 
+            Logger.LogInformation("Saving bundle");
             statusContext.Status("[yellow]Saving Bundle[/]");
             Bundle.Update();
+
+            Logger.LogInformation("Bundle saved successfully");
+            AnsiConsole.MarkupLine($"[green]Bundle file: {Bundle.BundlePath} Saved successfully[/]");
         }
 
         /// <summary>
@@ -110,19 +138,32 @@ namespace SAPTeam.EasySign.CommandLine
         /// <param name="certificates">The certificates.</param>
         protected virtual void RunSign(StatusContext statusContext, X509Certificate2Collection certificates)
         {
+            Logger.LogInformation("Running sign command");
+
             if (Bundle == null)
             {
                 throw new ApplicationException("Bundle is not initialized");
             }
 
+            if (certificates.Count == 0)
+            {
+                Logger.LogWarning("No certificates provided for signing");
+                AnsiConsole.MarkupLine("[red]No certificates provided for signing[/]");
+                return;
+            }
+
+            Logger.LogDebug("Loading bundle");
             statusContext.Status("[yellow]Loading Bundle[/]");
             Bundle.LoadFromFile(false);
 
             int divider = 0;
+            int signs = 0;
+
             foreach (var cert in certificates)
             {
                 if (divider++ > 0) AnsiConsole.WriteLine();
 
+                Logger.LogDebug("Loading certificate information for {Cert}", cert);
                 statusContext.Status("[yellow]Loading certificate informations[/]");
 
                 var grid = new Grid();
@@ -139,28 +180,50 @@ namespace SAPTeam.EasySign.CommandLine
                 AnsiConsole.Write(grid);
                 AnsiConsole.WriteLine();
 
+                Logger.LogDebug("Verifying certificate {cert}", cert);
                 statusContext.Status("[yellow]Verifying Certificate[/]");
 
                 bool verifyCert = VerifyCertificate(cert);
-                if (!verifyCert) continue;
+                if (!verifyCert)
+                {
+                    Logger.LogWarning("Skipping signing with {cert}", cert);
+                    continue;
+                }
 
+                Logger.LogDebug("Acquiring RSA private key for {cert}", cert);
                 statusContext.Status("[yellow]Preparing for signing[/]");
 
                 var prvKey = cert.GetRSAPrivateKey();
                 if (prvKey == null)
                 {
+                    Logger.LogError("Failed to acquire RSA private key for {cert}", cert);
                     AnsiConsole.MarkupLine($"[{Color.Green}] Failed to Acquire RSA Private Key[/]");
                     continue;
                 }
 
+                Logger.LogDebug("Signing bundle with {cert}", cert);
                 statusContext.Status("[yellow]Signing Bundle[/]");
 
                 Bundle.Sign(cert, prvKey);
+
+                signs++;
+                Logger.LogInformation("Bundle signed with {cert}", cert);
                 AnsiConsole.MarkupLine($"[green] Signing Completed Successfully[/]");
             }
 
+            if (signs == 0)
+            {
+                Logger.LogWarning("No certificates were suitable for signing");
+                AnsiConsole.MarkupLine("[red]No certificates were suitable for signing[/]");
+                return;
+            }
+
+            Logger.LogInformation("Saving bundle");
             statusContext.Status("[yellow]Updating Bundle[/]");
             Bundle.Update();
+
+            Logger.LogInformation("Bundle saved successfully");
+            AnsiConsole.MarkupLine($"[green]Bundle file: {Bundle.BundlePath} Saved successfully[/]");
         }
 
         /// <summary>
@@ -169,6 +232,8 @@ namespace SAPTeam.EasySign.CommandLine
         /// <param name="statusContext">The status context for interacting with <see cref="AnsiConsole.Status"/>.</param>
         protected virtual void RunVerify(StatusContext statusContext)
         {
+            Logger.LogInformation("Running verify command");
+
             if (Bundle == null)
             {
                 throw new ApplicationException("Bundle is not initialized");
@@ -182,28 +247,42 @@ namespace SAPTeam.EasySign.CommandLine
                 ["file_error"] = Color.Red3_1,
             };
 
+            Logger.LogDebug("Loading bundle");
             statusContext.Status("[yellow]Loading Bundle[/]");
             Bundle.LoadFromFile();
 
+            Logger.LogInformation("Starting certificate and signature verification");
             statusContext.Status("[yellow]Verification Phase 1: Certificates and signatures[/]");
 
             int verifiedCerts = 0;
             int divider = 0;
 
-            foreach (var cert in Bundle.Signatures.Entries.Keys)
+            foreach (var certificateHash in Bundle.Signatures.Entries.Keys)
             {
                 if (divider++ > 0) AnsiConsole.WriteLine();
 
-                var certificate = Bundle.GetCertificate(cert);
+                var certificate = Bundle.GetCertificate(certificateHash);
+
+                Logger.LogDebug("Verifying certificate {cert}", certificate);
                 AnsiConsole.MarkupLine($"Verifying Certificate [{Color.Teal}]{certificate.GetNameInfo(X509NameType.SimpleName, false)}[/] Issued by [{Color.Aqua}]{certificate.GetNameInfo(X509NameType.SimpleName, true)}[/]");
 
                 var verifyCert = VerifyCertificate(certificate);
-                if (!verifyCert) continue;
+                if (!verifyCert)
+                {
+                    Logger.LogWarning("Skipping signature verification for {cert}", certificate);
+                    continue;
+                }
 
-                var verifySign = Bundle.VerifySignature(cert);
+                Logger.LogDebug("Verifying signature for certificate {cert}", certificate);
+                var verifySign = Bundle.VerifySignature(certificateHash);
                 AnsiConsole.MarkupLine($"[{(verifySign ? Color.Green : Color.Red)}] Signature Verification {(verifySign ? "Successful" : "Failed")}[/]");
-                if (!verifySign) continue;
+                if (!verifySign)
+                {
+                    Logger.LogWarning("Signature verification failed for {cert}", certificate);
+                    continue;
+                }
 
+                Logger.LogInformation("Certificate and signature verification successful for {cert}", certificate);
                 verifiedCerts++;
             }
 
@@ -212,21 +291,30 @@ namespace SAPTeam.EasySign.CommandLine
             if (verifiedCerts == 0)
             {
                 if (Bundle.Signatures.Entries.Count == 0)
+                {
+                    Logger.LogWarning("Bundle is not signed");
                     AnsiConsole.MarkupLine($"[red]This bundle is not signed[/]");
+                }
 
+                Logger.LogWarning("No certificates were verified");
                 AnsiConsole.MarkupLine($"[red]Verification failed[/]");
                 return;
             }
 
             if (verifiedCerts == Bundle.Signatures.Entries.Count)
+            {
+                Logger.LogInformation("All certificates were verified");
                 AnsiConsole.MarkupLine($"[{Color.Green3}]All Certificates were verified[/]");
+            }
             else
             {
+                Logger.LogWarning("{verifiedCerts} out of {totalCerts} certificates were verified", verifiedCerts, Bundle.Signatures.Entries.Count);
                 AnsiConsole.MarkupLine($"[{Color.Yellow}]{verifiedCerts} out of {Bundle.Signatures.Entries.Count} Certificates were verified[/]");
             }
 
             AnsiConsole.WriteLine();
 
+            Logger.LogInformation("Starting file verification for {fileCount} files in multi-thread mode", Bundle.Manifest.Entries.Count);
             statusContext.Status("[yellow]Verification Phase 2: Files[/]");
 
             bool p2Verified = true;
@@ -236,18 +324,24 @@ namespace SAPTeam.EasySign.CommandLine
             int fm = 0;
             int fe = 0;
 
-            Parallel.ForEach(Bundle.Manifest.Entries, (entry) =>
+            _ = Parallel.ForEach(Bundle.Manifest.Entries, (entry) =>
             {
                 var verifyFile = false;
+
+                Logger.LogDebug("Verifying file {file}", entry.Key);
 
                 try
                 {
                     verifyFile = Bundle.VerifyFileIntegrity(entry.Key);
 
                     if (verifyFile)
+                    {
+                        Logger.LogInformation("File {file} verified", entry.Key);
                         Interlocked.Increment(ref fv);
+                    }
                     else
                     {
+                        Logger.LogWarning("File {file} failed verification", entry.Key);
                         Interlocked.Increment(ref ff);
                     }
 
@@ -255,17 +349,18 @@ namespace SAPTeam.EasySign.CommandLine
                 }
                 catch (FileNotFoundException)
                 {
+                    Logger.LogWarning("File {file} not found", entry.Key);
                     Interlocked.Increment(ref fm);
                     AnsiConsole.MarkupLine($"[{colorDict["file_missing"]}]{entry.Key}[/]");
                 }
                 catch (Exception ex)
                 {
+                    Logger.LogError(ex, "Error occurred while verifying file {file}", entry.Key);
                     Interlocked.Increment(ref fe);
                     AnsiConsole.MarkupLine($"[{colorDict["file_error"]}]{entry.Key} - {ex.GetType().Name}: {ex.Message}[/]");
                 }
 
-                if (!verifyFile)
-                    p2Verified = false;
+                if (!verifyFile) p2Verified = false;
             });
 
             AnsiConsole.WriteLine();
@@ -283,10 +378,12 @@ namespace SAPTeam.EasySign.CommandLine
 
             if (!p2Verified)
             {
+                Logger.LogWarning("File verification failed");
                 AnsiConsole.MarkupLine($"[red]File Verification Failed[/]");
                 return;
             }
 
+            Logger.LogInformation("Bundle verification completed successfully");
             AnsiConsole.MarkupLine("[green]Bundle Verification Completed Successfully[/]");
         }
 
@@ -304,9 +401,11 @@ namespace SAPTeam.EasySign.CommandLine
 
             List<bool> verifyResults = new();
 
+            Logger.LogDebug("Verifying certificate {cert} with default verification policy", certificate);
             var defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
             verifyResults.Add(defaultVerification);
 
+            Logger.LogInformation("Certificate verification with default policy for {cert}: {result}", certificate, defaultVerification);
             AnsiConsole.MarkupLine($"[{(defaultVerification ? Color.Green : Color.Red)}] Certificate Verification {(defaultVerification ? "Successful" : "Failed")}[/]");
 
             if (!defaultVerification)
@@ -317,12 +416,15 @@ namespace SAPTeam.EasySign.CommandLine
 
                 if (timeIssue)
                 {
+                    Logger.LogWarning("Certificate has time validity issues, retrying verification with time check disabled");
+
                     var policy = new X509ChainPolicy();
                     policy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
 
                     var noTimeVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] noTimeStatuses, policy: policy);
                     verifyResults.Add(noTimeVerification);
 
+                    Logger.LogInformation("Certificate verification without time checking for {cert}: {result}", certificate, noTimeVerification);
                     AnsiConsole.MarkupLine($"[{(noTimeVerification ? Color.Green : Color.Red)}] Certificate Verification without time checking {(noTimeVerification ? "Successful" : "Failed")}[/]");
                     Utilities.EnumerateStatuses(noTimeStatuses);
                 }

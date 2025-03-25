@@ -4,6 +4,9 @@ using System.CommandLine;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 using Spectre.Console;
 
 namespace SAPTeam.EasySign.CommandLine
@@ -14,6 +17,11 @@ namespace SAPTeam.EasySign.CommandLine
     /// <typeparam name="T">The type of the bundle.</typeparam>
     public abstract partial class CommandProvider<T>
     {
+        /// <summary>
+        /// Gets or sets the logger to use for logging.
+        /// </summary>
+        protected ILogger Logger { get; set; } = NullLogger.Instance;
+
         /// <summary>
         /// Gets the common argument for the bundle path.
         /// </summary>
