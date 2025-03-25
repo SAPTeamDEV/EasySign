@@ -36,17 +36,21 @@ namespace SAPTeam.EasySign.CommandLine
                 var replaceOpt = new Option<bool>("--replace", "Replace existing entries");
                 replaceOpt.AddAlias("-r");
 
+                var continueOpt = new Option<bool>("--continue", "Continue adding files if an error occurs");
+                continueOpt.AddAlias("-c");
+
                 var command = new Command("add", "Create new bundle or update an existing one")
                     {
                         BundlePath,
                         replaceOpt,
+                        continueOpt,
                     };
 
-                command.SetHandler((bundlePath, replace) =>
+                command.SetHandler((bundlePath, replace, continueOnError) =>
                 {
                     InitializeBundle(bundlePath);
-                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunAdd(ctx, replace));
-                }, BundlePath, replaceOpt);
+                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunAdd(ctx, replace, continueOnError));
+                }, BundlePath, replaceOpt, continueOpt);
 
                 return command;
             }

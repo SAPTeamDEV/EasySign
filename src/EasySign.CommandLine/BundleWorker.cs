@@ -24,9 +24,16 @@ namespace SAPTeam.EasySign.CommandLine
         /// <summary>
         /// Runs the add command.
         /// </summary>
-        /// <param name="statusContext">The status context for interacting with <see cref="AnsiConsole.Status"/>.</param>
-        /// <param name="replace">A value indicating whether to replace existing entries.</param>
-        protected virtual void RunAdd(StatusContext statusContext, bool replace)
+        /// <param name="statusContext">
+        /// The status context for interacting with <see cref="AnsiConsole.Status"/>.
+        /// </param>
+        /// <param name="replace">
+        /// A value indicating whether to replace existing entries.
+        /// </param>
+        /// <param name="continueOnError">
+        /// A value indicating whether to continue adding files if an error occurs.
+        /// </param>
+        protected virtual void RunAdd(StatusContext statusContext, bool replace, bool continueOnError)
         {
             if (Bundle == null)
             {
@@ -41,7 +48,8 @@ namespace SAPTeam.EasySign.CommandLine
 
             statusContext.Status("[yellow]Adding Files[/]");
 
-            _ = Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
+            bool errorOccurred = false;
+            _ = Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), (file, state) =>
             {
                 if (file == Bundle.BundlePath) return;
                 var entryName = Manifest.GetNormalizedEntryName(Path.GetRelativePath(Bundle.RootPath, file));
@@ -68,9 +76,28 @@ namespace SAPTeam.EasySign.CommandLine
                 }
                 catch (Exception ex)
                 {
+                    errorOccurred = true;
+
                     AnsiConsole.MarkupLine($"[{Color.Red}]Error:[/] {entryName} ({ex.GetType().Name}: {ex.Message})");
+
+                    if (!continueOnError)
+                    {
+                        state.Stop();
+                    }
                 }
             });
+
+            if (errorOccurred)
+            {
+                AnsiConsole.WriteLine();
+                AnsiConsole.MarkupLine("[red]One or more errors occurred, check the console output or logs for more information[/]");
+
+                if (!continueOnError)
+                {
+                    AnsiConsole.MarkupLine("[red]No changes were made to the bundle[/]");
+                    return;
+                }
+            }
 
             statusContext.Status("[yellow]Saving Bundle[/]");
             Bundle.Update();
