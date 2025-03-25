@@ -15,14 +15,10 @@ namespace SAPTeam.EasySign.CommandLine
     public abstract partial class CommandProvider<T>
     {
         /// <summary>
-        /// Gets the common argument for the working directory.
+        /// Gets the common argument for the bundle path.
         /// </summary>
-        protected Argument<string> WorkingDirectory { get; } = new Argument<string>("directory", "Working directory");
-
-        /// <summary>
-        /// Gets the common option for the bundle file name.
-        /// </summary>
-        protected Option<string> BundleName { get; } = new Option<string>("-f", () => ".eSign", "Bundle file name");
+        protected Argument<string> BundlePath { get; } = new Argument<string>("bundle", "Bundle path or directory containing the bundle\n" +
+            "if the bundle name is not specified, a default name will be used");
 
         /// <summary>
         /// Gets the root command for the command line interface.
@@ -39,15 +35,14 @@ namespace SAPTeam.EasySign.CommandLine
             {
                 var command = new Command("add", "Create new bundle or update an existing one")
                     {
-                        WorkingDirectory,
-                        BundleName,
+                        BundlePath,
                     };
 
-                command.SetHandler((workingDir, bundleName) =>
+                command.SetHandler((bundlePath) =>
                 {
-                    InitializeBundle(workingDir, bundleName);
+                    InitializeBundle(bundlePath);
                     Utilities.RunInStatusContext(ctx => RunAdd(ctx));
-                }, WorkingDirectory, BundleName);
+                }, BundlePath);
 
                 return command;
             }
@@ -66,20 +61,19 @@ namespace SAPTeam.EasySign.CommandLine
 
                 var command = new Command("sign", "Sign bundle with certificate")
                     {
-                        WorkingDirectory,
-                        BundleName,
+                        BundlePath,
                         pfxOpt,
                         pfxPassOpt,
                         pfxNoPassOpt,
                     };
 
-                command.SetHandler((workingDir, bundleName, pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt) =>
+                command.SetHandler((bundlePath, pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt) =>
                 {
-                    InitializeBundle(workingDir, bundleName);
+                    InitializeBundle(bundlePath);
                     X509Certificate2Collection collection = Utilities.GetCertificates(pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt);
 
                     Utilities.RunInStatusContext(ctx => RunSign(ctx, collection));
-                }, WorkingDirectory, BundleName, pfxOpt, pfxPassOpt, pfxNoPassOpt);
+                }, BundlePath, pfxOpt, pfxPassOpt, pfxNoPassOpt);
 
                 return command;
             }
@@ -94,15 +88,14 @@ namespace SAPTeam.EasySign.CommandLine
             {
                 var command = new Command("verify", "Verify bundle")
                     {
-                        WorkingDirectory,
-                        BundleName,
+                        BundlePath,
                     };
 
-                command.SetHandler((workingDir, bundleName) =>
+                command.SetHandler((bundlePath) =>
                 {
-                    InitializeBundle(workingDir, bundleName);
+                    InitializeBundle(bundlePath);
                     Utilities.RunInStatusContext(ctx => RunVerify(ctx));
-                }, WorkingDirectory, BundleName);
+                }, BundlePath);
 
                 return command;
             }

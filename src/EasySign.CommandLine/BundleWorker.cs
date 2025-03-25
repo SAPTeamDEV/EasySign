@@ -16,11 +16,10 @@ namespace SAPTeam.EasySign.CommandLine
         public T? Bundle { get; protected set; }
 
         /// <summary>
-        /// Initializes the bundle with the specified working directory and bundle name.
+        /// Initializes the bundle.
         /// </summary>
-        /// <param name="workingDirectory">The working directory.</param>
-        /// <param name="bundleName">The bundle name.</param>
-        public abstract void InitializeBundle(string workingDirectory, string bundleName);
+        /// <param name="bundlePath">Path of the bundle.</param>
+        public abstract void InitializeBundle(string bundlePath);
 
         /// <summary>
         /// Runs the add command.
