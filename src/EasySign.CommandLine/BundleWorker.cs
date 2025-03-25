@@ -44,7 +44,7 @@ namespace SAPTeam.EasySign.CommandLine
                 throw new ApplicationException("Bundle is not initialized");
             }
 
-            if (!Bundle.IsLoaded && File.Exists(Bundle.BundlePath))
+            if (!Bundle.Loaded && File.Exists(Bundle.BundlePath))
             {
                 Logger.LogDebug("A bundle file exists, loading bundle");
                 statusContext.Status("[yellow]Loading Bundle[/]");

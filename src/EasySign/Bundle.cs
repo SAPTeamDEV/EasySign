@@ -27,8 +27,9 @@ namespace SAPTeam.EasySign
         private readonly string _bundleName;
         private byte[] _rawZipContents = [];
 
-        private readonly ConcurrentDictionary<string, X509Certificate2> _certCache = new();
-        private readonly ConcurrentDictionary<string, byte[]> _fileCache = new();
+        private readonly ConcurrentDictionary<string, byte[]> _cache = new();
+        private readonly int _maxCacheSize;
+        private int _currentCacheSize;
 
         private readonly ConcurrentDictionary<string, byte[]> _pendingForAdd = new();
         private readonly List<string> _pendingForRemove = new();
@@ -63,7 +64,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Gets the name of the bundle file.
         /// </summary>
-        public string BundleName => IsLoadedFromMemory ? throw new InvalidOperationException("Bundle is loaded from memory") : _bundleName;
+        public string BundleName => LoadedFromMemory ? throw new InvalidOperationException("Bundle is loaded from memory") : _bundleName;
 
         /// <summary>
         /// Gets the full path of the bundle file.
@@ -83,17 +84,17 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Gets a value indicating whether the bundle is read-only.
         /// </summary>
-        public bool IsReadOnly { get; private set; }
+        public bool ReadOnly { get; private set; }
 
         /// <summary>
         /// Gets a value indicating whether the bundle is loaded from memory.
         /// </summary>
-        public bool IsLoadedFromMemory => _rawZipContents != null && _rawZipContents.Length > 0;
+        public bool LoadedFromMemory => _rawZipContents != null && _rawZipContents.Length > 0;
 
         /// <summary>
         /// Gets a value indicating whether the bundle is loaded.
         /// </summary>
-        public bool IsLoaded { get; private set; }
+        public bool Loaded { get; private set; }
 
         /// <summary>
         /// Occurs when the bundle file is being updated.
@@ -105,7 +106,8 @@ namespace SAPTeam.EasySign
         /// </summary>
         /// <param name="bundlePath">The path of the bundle.</param>
         /// <param name="logger">The logger to use for logging.</param>
-        public Bundle(string bundlePath, ILogger? logger = null)
+        /// <param name="maxCacheSize">The maximum size of the cache in bytes.</param>
+        public Bundle(string bundlePath, ILogger? logger = null, int maxCacheSize = 0x8000000)
         {
             Ensure.String.IsNotNullOrEmpty(bundlePath.Trim(), nameof(bundlePath));
 
@@ -123,6 +125,8 @@ namespace SAPTeam.EasySign
             }
 
             Logger = logger ?? NullLogger.Instance;
+
+            _maxCacheSize = maxCacheSize;
         }
 
         /// <summary>
@@ -130,10 +134,58 @@ namespace SAPTeam.EasySign
         /// </summary>
         protected void EnsureWritable()
         {
-            if (IsReadOnly)
+            if (ReadOnly)
             {
                 throw new InvalidOperationException("Bundle is read-only"); ;
             }
+        }
+
+        private void EvictIfNecessary(long incomingFileSize)
+        {
+            while (_currentCacheSize + incomingFileSize > _maxCacheSize && !_cache.IsEmpty)
+            {
+                var leastUsedKey = _cache.Keys.First();
+                if (_cache.TryRemove(leastUsedKey, out var removed))
+                {
+                    _currentCacheSize -= removed.Length;
+                }
+
+                Logger.LogDebug("Evicted entry: {name} from the cache", leastUsedKey);
+            }
+        }
+
+        /// <summary>
+        /// Caches an entry in memory.
+        /// </summary>
+        /// <param name="entryName">The name of the entry to cache.</param>
+        /// <param name="data">The data of the entry to cache.</param>
+        /// <returns><see langword="true"/> if the entry was cached; otherwise, <see langword="false"/>.</returns>
+        protected bool CacheEntry(string entryName, byte[] data)
+        {
+            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+            Ensure.Collection.HasItems(data, nameof(data));
+
+            if (!ReadOnly || _maxCacheSize < data.Length)
+            {
+                return false;
+            }
+
+            if (_cache.TryGetValue(entryName, out var existing))
+            {
+                if (existing.SequenceEqual(data))
+                {
+                    return false;
+                }
+            }
+
+            EvictIfNecessary(data.Length);
+                        
+            _cache[entryName] = data;
+            _currentCacheSize += data.Length;
+
+            Logger.LogDebug("Cached entry: {name} with {size} bytes", entryName, data.Length);
+
+            return true;
         }
 
         /// <summary>
@@ -147,7 +199,7 @@ namespace SAPTeam.EasySign
 
             Logger.LogDebug("Opening bundle archive in {Mode} mode", mode);
 
-            if (IsLoadedFromMemory)
+            if (LoadedFromMemory)
             {
                 Logger.LogDebug("Loading bundle from memory with {Size} bytes", _rawZipContents.Length);
 
@@ -168,16 +220,16 @@ namespace SAPTeam.EasySign
         /// <param name="readOnly">Whether to load the bundle in read-only mode.</param>
         public void LoadFromFile(bool readOnly = true)
         {
-            if (IsLoaded)
+            if (Loaded)
             {
                 throw new InvalidOperationException("The bundle is already loaded");
             }
 
-            IsReadOnly = readOnly;
+            ReadOnly = readOnly;
             using var zip = OpenZipArchive();
             Parse(zip);
 
-            IsLoaded = true;
+            Loaded = true;
 
             Logger.LogInformation("Bundle loaded from file: {file}", BundlePath);
         }
@@ -188,20 +240,20 @@ namespace SAPTeam.EasySign
         /// <param name="bundleContent">The byte array containing the bundle content.</param>
         public void LoadFromBytes(byte[] bundleContent)
         {
-            if (IsLoaded)
+            if (Loaded)
             {
                 throw new InvalidOperationException("The bundle is already loaded");
             }
 
             Ensure.Collection.HasItems(bundleContent, nameof(bundleContent));
 
-            IsReadOnly = true;
+            ReadOnly = true;
             _rawZipContents = bundleContent;
 
             using var zip = OpenZipArchive();
             Parse(zip);
 
-            IsLoaded = true;
+            Loaded = true;
 
             Logger.LogInformation("Bundle loaded from memory with {Size} bytes", bundleContent.Length);
         }
@@ -355,23 +407,7 @@ namespace SAPTeam.EasySign
 
             Logger.LogInformation("Verifying file integrity: {name}", entryName);
 
-            byte[] hash;
-
-            if (Manifest.StoreOriginalFiles)
-            {
-                Logger.LogDebug("Reading file: {name} from the bundle", entryName);
-
-                hash = ComputeSHA512Hash(ReadEntry(entryName));
-            }
-            else
-            {
-                Logger.LogDebug("Reading file: {name} from the file system", entryName);
-
-                string path = Path.GetFullPath(entryName, RootPath);
-                using var file = File.OpenRead(path);
-                hash = ComputeSHA512Hash(file);
-            }
-
+            byte[] hash = ComputeSHA512Hash(GetStream(entryName));
             bool result = Manifest.GetConcurrentDictionary()[entryName].SequenceEqual(hash);
 
             Logger.LogInformation("File integrity verification result for {name}: {result}", entryName, result);
@@ -394,8 +430,8 @@ namespace SAPTeam.EasySign
 
             Logger.LogInformation("Verifying signature with certificate: {name}", certificate.Subject);
 
-            var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
-            bool result = pubKey.VerifyData(manifestData, hash, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+            var manifestHash = GetBytes(".manifest.ec", ReadSource.Bundle);
+            bool result = pubKey.VerifyHash(manifestHash, hash, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
             Logger.LogInformation("Signature verification result for certificate {name}: {result}", certificate.Subject, result);
 
@@ -481,125 +517,88 @@ namespace SAPTeam.EasySign
 
             Logger.LogInformation("Getting certificate with hash: {hash}", certificateHash);
 
-            if (!_certCache.TryGetValue(certificateHash, out X509Certificate2? certificate))
-            {
-                Logger.LogDebug("Certificate with hash {hash} not found in cache", certificateHash);
-                Logger.LogDebug("Reading certificate with hash {hash} from the bundle", certificateHash);
-
-                var certData = ReadEntry(certificateHash);
+            var certData = GetBytes(certificateHash, ReadSource.Bundle);
 
 #if NET9_0_OR_GREATER
-                certificate = X509CertificateLoader.LoadCertificate(certData);
+            var certificate = X509CertificateLoader.LoadCertificate(certData);
 #else
-                certificate = new X509Certificate2(certData);
+            var certificate = new X509Certificate2(certData);
 #endif
-
-                if (IsReadOnly)
-                {
-                    Logger.LogDebug("Caching certificate with hash {hash}", certificateHash);
-                    _certCache[certificateHash] = certificate;
-                }
-            }
-            else
-            {
-                Logger.LogDebug("Certificate with hash {hash} found in cache", certificateHash);
-            }
 
             return certificate;
         }
 
         /// <summary>
-        /// Gets a stream for a file entry in the bundle.
+        /// Gets a stream for an entry in the bundle and caches the entry data if the bundle is Read-only.
         /// </summary>
         /// <param name="entryName">The name of the entry to get the stream for.</param>
-        /// <returns>A stream for the file.</returns>
-        public Stream GetFileStream(string entryName)
+        /// <param name="readSource">The source from which to read the data.</param>
+        /// <returns>A stream for the entry.</returns>
+        public Stream GetStream(string entryName, ReadSource readSource = ReadSource.Both)
         {
             Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
 
             Logger.LogInformation("Getting file stream for entry: {name}", entryName);
 
-            if (Manifest.StoreOriginalFiles)
+            if (_cache.TryGetValue(entryName, out var data))
+            {
+                Logger.LogDebug("Reading entry {name} from cache", entryName);
+                return new MemoryStream(data);
+            }
+            else
+            {
+                Logger.LogDebug("Entry {name} not found in cache", entryName);
+            }
+
+            Stream stream;
+
+            if (readSource != ReadSource.Disk && (readSource == ReadSource.Bundle || Manifest.StoreOriginalFiles))
             {
                 Logger.LogDebug("Reading file: {name} from the bundle", entryName);
 
                 using var zip = OpenZipArchive();
+
                 var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
-                return entry.Open();
+                stream = entry.Open();
             }
             else
             {
                 Logger.LogDebug("Reading file: {name} from the file system", entryName);
 
                 string path = Path.GetFullPath(entryName, RootPath);
-                return File.OpenRead(path);
+                stream =  File.OpenRead(path);
             }
+
+            if (ReadOnly && stream.Length < _maxCacheSize)
+            {
+                _ = CacheEntry(entryName, ReadStream(stream));
+            }
+
+            return stream;
         }
 
         /// <summary>
-        /// Gets the bytes of a file entry in the bundle.
+        /// Gets the data of an entry in the bundle as bytes array and caches the entry data if the bundle is Read-only.
         /// </summary>
         /// <param name="entryName">The name of the entry to get the bytes for.</param>
-        /// <returns>The bytes of the file.</returns>
-        public byte[] GetFileBytes(string entryName)
+        /// <param name="readSource">The source from which to read the data.</param>
+        /// <returns>The entry data as bytes array.</returns>
+        public byte[] GetBytes(string entryName, ReadSource readSource)
         {
             Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
 
             Logger.LogInformation("Getting file data for entry: {name}", entryName);
 
-            if (Manifest.StoreOriginalFiles)
+            if (!_cache.TryGetValue(entryName, out var data))
             {
-                Logger.LogDebug("Reading file: {name} from the bundle", entryName);
+                data = ReadStream(GetStream(entryName, readSource));
 
-                return ReadEntry(entryName);
+                _ = CacheEntry(entryName, data);
             }
-            else
-            {
-                Logger.LogDebug("Reading file: {name} from the file system", entryName);
 
-                string path = Path.GetFullPath(entryName, RootPath);
-                return ReadStream(File.OpenRead(path));
-            }
+            return data;
         }
-
-        /// <summary>
-        /// Exports the specified structured data to a byte array.
-        /// </summary>
-        /// <param name="structuredData">The structured data to export.</param>
-        /// <param name="jsonSerializerContext">A metadata provider for serializable types.</param>
-        /// <returns>A byte array containing the exported data.</returns>
-        protected byte[] Export(object structuredData, JsonSerializerContext jsonSerializerContext)
-        {
-            Ensure.Any.IsNotNull(structuredData, nameof(structuredData));
-            Ensure.Any.IsNotNull(jsonSerializerContext, nameof(jsonSerializerContext));
-
-            Logger.LogInformation("Exporting data from a {type} object as byte array", structuredData.GetType().Name);
-
-            var data = JsonSerializer.Serialize(structuredData, structuredData.GetType(), jsonSerializerContext);
-            return Encoding.UTF8.GetBytes(data);
-        }
-
-        /// <summary>
-        /// Exports the specified structured data to a byte array.
-        /// </summary>
-        /// <param name="structuredData">The structured data to export.</param>
-        /// <returns>A byte array containing the exported data.</returns>
-#if NET6_0_OR_GREATER
-        [RequiresUnreferencedCode("This method is not compatible with AOT.")]
-#endif
-#if NET8_0_OR_GREATER
-        [RequiresDynamicCode("This method is not compatible with AOT.")]
-#endif
-        protected byte[] Export(object structuredData)
-        {
-            Ensure.Any.IsNotNull(structuredData, nameof(structuredData));
-
-            Logger.LogInformation("Exporting data from a {type} object as byte array", structuredData.GetType().Name);
-
-            var data = JsonSerializer.Serialize(structuredData, SerializerOptions);
-            return Encoding.UTF8.GetBytes(data);
-        }
-
+                
         /// <summary>
         /// Writes changes to the bundle file.
         /// </summary>
@@ -647,50 +646,41 @@ namespace SAPTeam.EasySign
         }
 
         /// <summary>
-        /// Reads an entry from bundle and caches the entry data if the bundle is Read-only.
+        /// Exports the specified structured data to a byte array.
         /// </summary>
-        /// <param name="entryName">The name of the entry to read.</param>
-        /// <returns>A byte array containing the entry data.</returns>
-        protected byte[] ReadEntry(string entryName)
+        /// <param name="structuredData">The structured data to export.</param>
+        /// <param name="jsonSerializerContext">A metadata provider for serializable types.</param>
+        /// <returns>A byte array containing the exported data.</returns>
+        protected byte[] Export(object structuredData, JsonSerializerContext jsonSerializerContext)
         {
-            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+            Ensure.Any.IsNotNull(structuredData, nameof(structuredData));
+            Ensure.Any.IsNotNull(jsonSerializerContext, nameof(jsonSerializerContext));
 
-            if (!_fileCache.TryGetValue(entryName, out var data))
-            {
-                Logger.LogDebug("Entry {name} not found in cache", entryName);
-                Logger.LogDebug("Reading entry: {name} from the bundle", entryName);
+            Logger.LogInformation("Exporting data from a {type} object as byte array", structuredData.GetType().Name);
 
-                using var zip = OpenZipArchive();
-                var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
-                using var stream = entry.Open();
-                data = ReadStream(stream);
-
-                if (IsReadOnly)
-                {
-                    Logger.LogDebug("Caching entry: {name}", entryName);
-                    _fileCache[entryName] = data;
-                }    
-            }
-            else
-            {
-                Logger.LogDebug("Entry {name} found in cache", entryName);
-            }
-
-                return data;
+            var data = JsonSerializer.Serialize(structuredData, structuredData.GetType(), jsonSerializerContext);
+            return Encoding.UTF8.GetBytes(data);
         }
 
         /// <summary>
-        /// Reads a stream into a byte array.
+        /// Exports the specified structured data to a byte array.
         /// </summary>
-        /// <param name="stream">The stream to read.</param>
-        /// <returns>A byte array containing the stream data.</returns>
-        private static byte[] ReadStream(Stream stream)
+        /// <param name="structuredData">The structured data to export.</param>
+        /// <returns>A byte array containing the exported data.</returns>
+#if NET6_0_OR_GREATER
+        [RequiresUnreferencedCode("This method is not compatible with AOT.")]
+#endif
+#if NET8_0_OR_GREATER
+        [RequiresDynamicCode("This method is not compatible with AOT.")]
+#endif
+        protected byte[] Export(object structuredData)
         {
-            Ensure.Any.IsNotNull(stream, nameof(stream));
+            Ensure.Any.IsNotNull(structuredData, nameof(structuredData));
 
-            MemoryStream ms = new();
-            stream.CopyTo(ms);
-            return ms.ToArray();
+            Logger.LogInformation("Exporting data from a {type} object as byte array", structuredData.GetType().Name);
+
+            var data = JsonSerializer.Serialize(structuredData, SerializerOptions);
+            return Encoding.UTF8.GetBytes(data);
         }
 
         /// <summary>
@@ -729,6 +719,25 @@ namespace SAPTeam.EasySign
             stream.Flush();
 
             Logger.LogInformation("Wrote entry: {name} with {size} bytes to the bundle", entryName, data.Length);
+        }
+
+        /// <summary>
+        /// Reads a stream into a byte array.
+        /// </summary>
+        /// <param name="stream">The stream to read.</param>
+        /// <returns>A byte array containing the stream data.</returns>
+        private static byte[] ReadStream(Stream stream)
+        {
+            Ensure.Any.IsNotNull(stream, nameof(stream));
+
+            if (stream.Length > int.MaxValue)
+            {
+                throw new OverflowException("Stream length is too big for buffering");
+            }
+
+            MemoryStream ms = new();
+            stream.CopyTo(ms);
+            return ms.ToArray();
         }
 
         /// <summary>
