@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -47,7 +48,7 @@ namespace SAPTeam.EasySign
 
         /// <summary>
         /// Adds an entry to the manifest.
-        /// if it already exists, an exception will be thrown.
+        /// An exception will be thrown if the entry already exists.
         /// </summary>
         /// <param name="entryName">
         /// The name of the entry to add.
@@ -55,12 +56,26 @@ namespace SAPTeam.EasySign
         /// <param name="hash">
         /// The hash of the entry to add.
         /// </param>
-        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="DuplicateNameException"></exception>
         public void AddEntry(string entryName, byte[] hash)
         {
             if (!entries.TryAdd(entryName, hash))
             {
-                throw new InvalidOperationException($"The entry '{entryName}' is already in the manifest.");
+                throw new DuplicateNameException($"The entry '{entryName}' is already in the manifest.");
+            }
+        }
+
+        /// <summary>
+        /// Deletes an entry from the manifest.
+        /// An exception will be thrown if the entry does not exist.
+        /// </summary>
+        /// <param name="entryName">The name of the entry to delete. </param>
+        /// <exception cref="KeyNotFoundException"></exception>
+        public void DeleteEntry(string entryName)
+        {
+            if (!entries.Remove(entryName, out _))
+            {
+                throw new KeyNotFoundException(entryName);
             }
         }
 

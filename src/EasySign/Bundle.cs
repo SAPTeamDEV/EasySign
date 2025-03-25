@@ -27,9 +27,11 @@ namespace SAPTeam.EasySign
         private readonly string _bundleName;
         private byte[] _rawZipContents = [];
 
-        private readonly Dictionary<string, X509Certificate2> _certCache = new();
-        private readonly ConcurrentDictionary<string, byte[]> _newEmbeddedFiles = new();
+        private readonly ConcurrentDictionary<string, X509Certificate2> _certCache = new();
         private readonly ConcurrentDictionary<string, byte[]> _fileCache = new();
+
+        private readonly ConcurrentDictionary<string, byte[]> _pendingForAdd = new();
+        private readonly List<string> _pendingForRemove = new();
 
         /// <summary>
         /// Gets the JSON serializer options.
@@ -281,8 +283,35 @@ namespace SAPTeam.EasySign
 
             if (Manifest.StoreOriginalFiles)
             {
-                Logger.LogDebug("Embedding file: {name} in the bundle", name);
-                _newEmbeddedFiles[name] = File.ReadAllBytes(path);
+                Logger.LogDebug("Pending file: {name} for embedding in the bundle", name);
+                _pendingForAdd[name] = File.ReadAllBytes(path);
+            }
+        }
+
+        /// <summary>
+        /// Deletes an entry from the bundle.
+        /// </summary>
+        /// <param name="entryName">The name of the entry to delete.</param>
+        public void DeleteEntry(string entryName)
+        {
+            EnsureWritable();
+
+            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+
+            Logger.LogInformation("Deleting entry: {name}", entryName);
+
+            Manifest.DeleteEntry(entryName);
+
+            if (Manifest.StoreOriginalFiles)
+            {
+                Logger.LogDebug("Pending entry: {name} for deletion from the bundle", entryName);
+                _pendingForRemove.Add(entryName);
+
+                if (_pendingForAdd.ContainsKey(entryName))
+                {
+                    Logger.LogDebug("Removing pending entry: {name} from the bundle", entryName);
+                    _pendingForAdd.Remove(entryName, out _);
+                }
             }
         }
 
@@ -314,8 +343,8 @@ namespace SAPTeam.EasySign
             var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
             var signature = privateKey.SignData(manifestData, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
-            Logger.LogDebug("Embedding file: {name} in the bundle", name);
-            _newEmbeddedFiles[name] = Encoding.UTF8.GetBytes(pemContents);
+            Logger.LogDebug("Pending file: {name} for embedding in the bundle", name);
+            _pendingForAdd[name] = Encoding.UTF8.GetBytes(pemContents);
 
             Logger.LogDebug("Adding signature for certificate: {name} to signatures", name);
             Signatures.Entries[name] = signature;
@@ -590,6 +619,22 @@ namespace SAPTeam.EasySign
 
             using (ZipArchive zip = OpenZipArchive(ZipArchiveMode.Update))
             {
+                Logger.LogDebug("Deleting pending files from the bundle");
+
+                ZipArchiveEntry? tempEntry;
+                foreach (var entryName in _pendingForRemove)
+                {
+                    if ((tempEntry = zip.GetEntry(entryName)) != null)
+                    {
+                        Logger.LogDebug("Deleting entry: {name}", entryName);
+                        tempEntry.Delete();
+                    }
+                    else
+                    {
+                        Logger.LogWarning("Entry {name} not found in the bundle", entryName);
+                    }
+                }
+
                 Logger.LogDebug("Raising OnUpdating event");
                 OnUpdating?.Invoke(zip);
 
@@ -601,8 +646,8 @@ namespace SAPTeam.EasySign
                 var signatureData = Export(Signatures, SourceGenerationSignaturesContext.Default);
                 WriteEntry(zip, ".signatures.ec", signatureData);
 
-                Logger.LogDebug("Writing new files to the bundle");
-                foreach (var newFile in _newEmbeddedFiles)
+                Logger.LogDebug("Writing pending files to the bundle");
+                foreach (var newFile in _pendingForAdd)
                 {
                     WriteEntry(zip, newFile.Key, newFile.Value);
                 }
