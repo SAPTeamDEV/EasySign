@@ -29,6 +29,7 @@ namespace SAPTeam.EasySign
         private byte[] _rawZipContents = [];
 
         private readonly ConcurrentDictionary<string, byte[]> _cache = new();
+        private byte[] _zipCache = [];
         private readonly int _maxCacheSize;
         private int _currentCacheSize;
 
@@ -242,8 +243,32 @@ namespace SAPTeam.EasySign
             }
             else
             {
-                Logger.LogDebug("Loading bundle from file: {file}", BundlePath);
+                if (mode == ZipArchiveMode.Read)
+                {
+                    Stream stream;
+                    if (_zipCache.Length == 0)
+                    {
+                        Logger.LogDebug("Loading bundle from file: {file}", BundlePath);
+                        stream = File.OpenRead(BundlePath);
 
+                        if (ReadOnly && stream.Length < _maxCacheSize)
+                        {
+                            Logger.LogDebug("Caching bundle with {Size} bytes", stream.Length);
+                            _zipCache = ReadStream(stream);
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogDebug("Loading bundle from cache with {Size} bytes", _zipCache.Length);
+                        stream = new MemoryStream(_zipCache, writable: false);
+                    }
+
+                    return new ZipArchive(stream, ZipArchiveMode.Read);
+                }
+
+                _zipCache = Array.Empty<byte>();
+
+                Logger.LogDebug("Loading bundle from file: {file}", BundlePath);
                 return ZipFile.Open(BundlePath, mode);
             }
         }
@@ -569,8 +594,36 @@ namespace SAPTeam.EasySign
         }
 
         /// <summary>
+        /// Gets the data of an entry in the bundle as bytes array and caches the entry data if the bundle is Read-only.
+        /// </summary>
+        /// <remarks>
+        /// Protected entries are only resolved with <see cref="ReadSource.Bundle"/>.
+        /// </remarks>
+        /// <param name="entryName">The name of the entry to get the bytes for.</param>
+        /// <param name="readSource">The source from which to read the data.</param>
+        /// <returns>The entry data as bytes array.</returns>
+        public byte[] GetBytes(string entryName, ReadSource readSource)
+        {
+            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
+
+            Logger.LogInformation("Getting file data for entry: {name}", entryName);
+
+            if (!_cache.TryGetValue(entryName, out var data))
+            {
+                data = ReadStream(GetStream(entryName, readSource));
+
+                _ = CacheEntry(entryName, data);
+            }
+
+            return data;
+        }
+
+        /// <summary>
         /// Gets a stream for an entry in the bundle and caches the entry data if the bundle is Read-only.
         /// </summary>
+        /// <remarks>
+        /// Protected entries are only resolved with <see cref="ReadSource.Bundle"/>.
+        /// </remarks>
         /// <param name="entryName">The name of the entry to get the stream for.</param>
         /// <param name="readSource">The source from which to read the data.</param>
         /// <returns>A stream for the entry.</returns>
@@ -583,7 +636,7 @@ namespace SAPTeam.EasySign
             if (_cache.TryGetValue(entryName, out var data))
             {
                 Logger.LogDebug("Reading entry {name} from cache", entryName);
-                return new MemoryStream(data);
+                return new MemoryStream(data, writable: false);
             }
             else
             {
@@ -620,28 +673,6 @@ namespace SAPTeam.EasySign
             }
 
             return stream;
-        }
-
-        /// <summary>
-        /// Gets the data of an entry in the bundle as bytes array and caches the entry data if the bundle is Read-only.
-        /// </summary>
-        /// <param name="entryName">The name of the entry to get the bytes for.</param>
-        /// <param name="readSource">The source from which to read the data.</param>
-        /// <returns>The entry data as bytes array.</returns>
-        public byte[] GetBytes(string entryName, ReadSource readSource)
-        {
-            Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
-
-            Logger.LogInformation("Getting file data for entry: {name}", entryName);
-
-            if (!_cache.TryGetValue(entryName, out var data))
-            {
-                data = ReadStream(GetStream(entryName, readSource));
-
-                _ = CacheEntry(entryName, data);
-            }
-
-            return data;
         }
                 
         /// <summary>
@@ -780,9 +811,19 @@ namespace SAPTeam.EasySign
                 throw new OverflowException("Stream length is too big for buffering");
             }
 
-            MemoryStream ms = new();
-            stream.CopyTo(ms);
-            return ms.ToArray();
+            byte[] result;
+            if (stream is MemoryStream memoryStream)
+            {
+                result = memoryStream.ToArray();
+            }
+            else
+            {
+                MemoryStream ms = new();
+                stream.CopyTo(ms);
+                result = ms.ToArray();
+            }
+
+            return result;
         }
 
         /// <summary>
