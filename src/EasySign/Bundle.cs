@@ -128,18 +128,12 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Throws an exception if the bundle is read-only.
         /// </summary>
-        private void EnsureWritable()
+        protected void EnsureWritable()
         {
-            Logger.LogDebug("Checking if bundle is read-only");
-
             if (IsReadOnly)
             {
-                Logger.LogError("Bundle is read-only");
-
                 throw new InvalidOperationException("Bundle is read-only"); ;
             }
-
-            Logger.LogDebug("Bundle is writable");
         }
 
         /// <summary>
@@ -367,8 +361,7 @@ namespace SAPTeam.EasySign
             {
                 Logger.LogDebug("Reading file: {name} from the bundle", entryName);
 
-                using var zip = OpenZipArchive();
-                hash = ComputeSHA512Hash(ReadEntry(zip, entryName));
+                hash = ComputeSHA512Hash(ReadEntry(entryName));
             }
             else
             {
@@ -492,8 +485,8 @@ namespace SAPTeam.EasySign
             {
                 Logger.LogDebug("Certificate with hash {hash} not found in cache", certificateHash);
                 Logger.LogDebug("Reading certificate with hash {hash} from the bundle", certificateHash);
-                using var zip = OpenZipArchive();
-                var certData = ReadEntry(zip, certificateHash);
+
+                var certData = ReadEntry(certificateHash);
 
 #if NET9_0_OR_GREATER
                 certificate = X509CertificateLoader.LoadCertificate(certData);
@@ -558,8 +551,7 @@ namespace SAPTeam.EasySign
             {
                 Logger.LogDebug("Reading file: {name} from the bundle", entryName);
 
-                using var zip = OpenZipArchive();
-                return ReadEntry(zip, entryName);
+                return ReadEntry(entryName);
             }
             else
             {
@@ -655,20 +647,20 @@ namespace SAPTeam.EasySign
         }
 
         /// <summary>
-        /// Reads an entry from a <see cref="ZipArchive"/> and caches the entry data if the bundle is Read-only.
+        /// Reads an entry from bundle and caches the entry data if the bundle is Read-only.
         /// </summary>
-        /// <param name="zip">The <see cref="ZipArchive"/> to read from.</param>
         /// <param name="entryName">The name of the entry to read.</param>
         /// <returns>A byte array containing the entry data.</returns>
-        protected byte[] ReadEntry(ZipArchive zip, string entryName)
+        protected byte[] ReadEntry(string entryName)
         {
-            Ensure.Any.IsNotNull(zip, nameof(zip));
             Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
 
             if (!_fileCache.TryGetValue(entryName, out var data))
             {
                 Logger.LogDebug("Entry {name} not found in cache", entryName);
                 Logger.LogDebug("Reading entry: {name} from the bundle", entryName);
+
+                using var zip = OpenZipArchive();
                 var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
                 using var stream = entry.Open();
                 data = ReadStream(stream);
