@@ -31,10 +31,14 @@
     <PackageReference Include="Nerdbank.GitVersioning" Version="3.7.115" PrivateAssets="All" />
     <PackageReference Include="Serilog" Version="4.2.0" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
-    <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.1" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
   </ItemGroup>
 
+  <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
+    <PackageReference Update="Serilog.Extensions.Logging" Version="9.0.1" />
+  </ItemGroup>
+  
   <ItemGroup>
     <None Include="README.md">
       <Pack>True</Pack>

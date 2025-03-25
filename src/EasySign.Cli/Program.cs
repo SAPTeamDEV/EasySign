@@ -17,8 +17,6 @@ namespace SAPTeam.EasySign.Cli
 {
     internal class Program
     {
-        public static Serilog.ILogger Logger { get; private set; }
-
         static int Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
@@ -31,8 +29,8 @@ namespace SAPTeam.EasySign.Cli
                 .MinimumLevel.Debug() // Minimum log level
                 .CreateLogger();
 
-            Logger = Log.Logger.ForContext("Context", "Main");
-            Logger.Information("Starting EasySign CLI at {DateTime}", DateTime.Now);
+            var appLogger = Log.Logger.ForContext("Context", "Main");
+            appLogger.Information("Starting EasySign CLI at {DateTime}", DateTime.Now);
 
             var bundleLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "Bundle"))
                 .CreateLogger("CommandProvider");
@@ -43,7 +41,7 @@ namespace SAPTeam.EasySign.Cli
             var root = new BundleCommandProvider(commandProviderLogger, bundleLogger).GetRootCommand();
             var exitCode = root.Invoke(args);
 
-            Logger.Information("Shutting down EasySign CLI at {DateTime} with exit code {ExitCode}", DateTime.Now, exitCode);
+            appLogger.Information("Shutting down EasySign CLI at {DateTime} with exit code {ExitCode}", DateTime.Now, exitCode);
 
             Log.CloseAndFlush();
             return exitCode;
