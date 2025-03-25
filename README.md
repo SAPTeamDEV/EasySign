@@ -8,6 +8,8 @@ Easy Sign is a simple C# library for signing and verifying files. It supports mu
 - Verify file integrity and signatures.
 - Store files within the bundle.
 - Support for concurrent operations.
+- AOT compilation support.
+- Logging support.
 
 ## Installation
 

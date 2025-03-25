@@ -24,7 +24,7 @@ namespace SAPTeam.EasySign
     /// </summary>
     public class Bundle
     {
-        private readonly string _bundleName = ".eSign";
+        private readonly string _bundleName;
         private byte[] _rawZipContents = [];
 
         private readonly Dictionary<string, X509Certificate2> _certCache = new();
@@ -44,6 +44,14 @@ namespace SAPTeam.EasySign
         /// Gets the logger to use for logging.
         /// </summary>
         protected ILogger Logger { get; }
+
+        /// <summary>
+        /// Gets the default name of the bundle.
+        /// </summary>
+        /// <remarks>
+        /// Only used when the bundle path does not specify a file name.
+        /// </remarks>
+        protected virtual string DefaultBundleName => ".eSign";
 
         /// <summary>
         /// Gets the root path of the bundle. This path used for relative path resolution.
@@ -91,28 +99,27 @@ namespace SAPTeam.EasySign
         public event Action<ZipArchive>? OnUpdating;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Bundle"/> class with the specified root path and bundle name.
+        /// Initializes a new instance of the <see cref="Bundle"/> class.
         /// </summary>
-        /// <param name="rootPath">The root path of the bundle.</param>
-        /// <param name="bundleName">The name of the bundle.</param>
+        /// <param name="bundlePath">The path of the bundle.</param>
         /// <param name="logger">The logger to use for logging.</param>
-        public Bundle(string rootPath, string bundleName, ILogger? logger = null) : this(rootPath, logger)
+        public Bundle(string bundlePath, ILogger? logger = null)
         {
-            Ensure.String.IsNotNullOrEmpty(bundleName.Trim(), nameof(bundleName));
+            Ensure.String.IsNotNullOrEmpty(bundlePath.Trim(), nameof(bundlePath));
 
-            _bundleName = bundleName;
-        }
+            var fullPath = Path.GetFullPath(bundlePath);
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Bundle"/> class with the specified root path and default bundle name.
-        /// </summary>
-        /// <param name="rootPath">The root path of the bundle.</param>
-        /// <param name="logger">The logger to use for logging.</param>
-        public Bundle(string rootPath, ILogger? logger = null)
-        {
-            Ensure.String.IsNotNullOrEmpty(rootPath.Trim(), nameof(rootPath));
+            if (Directory.Exists(fullPath))
+            {
+                _bundleName = DefaultBundleName;
+                RootPath = fullPath;
+            }
+            else
+            {
+                _bundleName = Path.GetFileName(fullPath);
+                RootPath = Path.GetDirectoryName(fullPath) ?? throw new ArgumentException("Cannot resolve root path of the bundle: " + fullPath);
+            }
 
-            RootPath = Path.GetFullPath(rootPath);
             Logger = logger ?? NullLogger.Instance;
         }
 
