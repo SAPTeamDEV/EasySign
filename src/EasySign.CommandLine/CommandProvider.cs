@@ -33,16 +33,20 @@ namespace SAPTeam.EasySign.CommandLine
         {
             get
             {
+                var replaceOpt = new Option<bool>("--replace", "Replace existing entries");
+                replaceOpt.AddAlias("-r");
+
                 var command = new Command("add", "Create new bundle or update an existing one")
                     {
                         BundlePath,
+                        replaceOpt,
                     };
 
-                command.SetHandler((bundlePath) =>
+                command.SetHandler((bundlePath, replace) =>
                 {
                     InitializeBundle(bundlePath);
-                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunAdd(ctx));
-                }, BundlePath);
+                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunAdd(ctx, replace));
+                }, BundlePath, replaceOpt);
 
                 return command;
             }

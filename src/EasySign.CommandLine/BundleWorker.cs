@@ -25,7 +25,8 @@ namespace SAPTeam.EasySign.CommandLine
         /// Runs the add command.
         /// </summary>
         /// <param name="statusContext">The status context for interacting with <see cref="AnsiConsole.Status"/>.</param>
-        protected virtual void RunAdd(StatusContext statusContext)
+        /// <param name="replace">A value indicating whether to replace existing entries.</param>
+        protected virtual void RunAdd(StatusContext statusContext, bool replace)
         {
             if (Bundle == null)
             {
@@ -40,7 +41,7 @@ namespace SAPTeam.EasySign.CommandLine
 
             statusContext.Status("[yellow]Adding Files[/]");
 
-            Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
+            _ = Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
             {
                 if (file == Bundle.BundlePath) return;
 
@@ -48,7 +49,15 @@ namespace SAPTeam.EasySign.CommandLine
 
                 if (Bundle.Manifest.Entries.ContainsKey(entryName))
                 {
-                    AnsiConsole.MarkupLine($"[{Color.Orange1}]Exists:[/] {entryName}");
+                    if (!replace)
+                    {
+                        AnsiConsole.MarkupLine($"[{Color.Orange1}]Exists:[/] {entryName}");
+                        return;
+                    }
+
+                    Bundle.DeleteEntry(entryName);
+                    Bundle.AddEntry(file);
+                    AnsiConsole.MarkupLine($"[{Color.Cyan2}]Replaced:[/] {entryName}");
                 }
                 else
                 {
