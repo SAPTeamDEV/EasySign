@@ -268,7 +268,7 @@ namespace SAPTeam.EasySign
                 rootPath = RootPath;
 
             using var file = File.OpenRead(path);
-            string name = new UnifiedPath.OSPath(Path.GetRelativePath(rootPath, path)).Unix;
+            string name = Manifest.GetNormalizedEntryName(Path.GetRelativePath(rootPath, path));
             var hash = ComputeSHA512Hash(file);
 
             if (Manifest.StoreOriginalFiles && !string.IsNullOrEmpty(destinationPath) && destinationPath != "./")

@@ -63,6 +63,20 @@ namespace SAPTeam.EasySign
                 throw new InvalidOperationException($"The entry '{entryName}' is already in the manifest.");
             }
         }
+
+        /// <summary>
+        /// Converts the path to an standard zip entry name
+        /// </summary>
+        /// <param name="path">
+        /// The path to convert.
+        /// </param>
+        /// <returns>
+        /// The normalized entry name.
+        /// </returns>
+        public static string GetNormalizedEntryName(string path)
+        {
+            return new UnifiedPath.OSPath(path).Unix;
+        }
     }
 
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
