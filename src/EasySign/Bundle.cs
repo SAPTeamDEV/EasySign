@@ -10,6 +10,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using EnsureThat;
@@ -47,6 +48,19 @@ namespace SAPTeam.EasySign
         /// Gets the logger to use for logging.
         /// </summary>
         protected ILogger Logger { get; }
+
+        /// <summary>
+        /// Gets the list of sensitive names. Regex patterns are supported.
+        /// </summary>
+        /// <remarks>
+        /// These names are not allowed for add or delete.
+        /// The entries with these names are only resolved with <see cref="ReadSource.Bundle"/>.
+        /// </remarks>
+        protected List<string> ProtectedNames { get; } = new()
+        {
+            ".manifest.ec",
+            ".signatures.ec",
+        };
 
         /// <summary>
         /// Gets the default name of the bundle.
@@ -138,6 +152,26 @@ namespace SAPTeam.EasySign
             {
                 throw new InvalidOperationException("Bundle is read-only"); ;
             }
+        }
+
+        /// <summary>
+        /// Checks whether the entry name is protected and throws an exception if it is.
+        /// </summary>
+        /// <param name="entryName">The name of the entry to check.</param>
+        /// <param name="throwException">Whether to throw an exception if the entry name is protected.</param>
+        /// <exception cref="UnauthorizedAccessException"></exception>
+        /// <returns>True if the entry name is not protected; otherwise, false.</returns>
+        protected bool CheckEntryNameSecurity(string entryName, bool throwException = true)
+        {
+            foreach (var pattern in ProtectedNames)
+            {
+                if (Regex.IsMatch(entryName, pattern))
+                {
+                    return throwException ? throw new UnauthorizedAccessException("Entry name is protected: " + entryName) : false;
+                }
+            }
+
+            return true;
         }
 
         private void EvictIfNecessary(long incomingFileSize)
@@ -317,6 +351,9 @@ namespace SAPTeam.EasySign
 
             using var file = File.OpenRead(path);
             string name = Manifest.GetNormalizedEntryName(Path.GetRelativePath(rootPath, path));
+
+            CheckEntryNameSecurity(name);
+
             var hash = ComputeSHA512Hash(file);
 
             if (Manifest.StoreOriginalFiles && !string.IsNullOrEmpty(destinationPath) && destinationPath != "./")
@@ -324,7 +361,7 @@ namespace SAPTeam.EasySign
                 name = destinationPath + name;
             }
 
-            Logger.LogDebug("Adding entry: {name} with hash {hash} to manifest", name, string.Format("X2", hash));
+            Logger.LogDebug("Adding entry: {name} with hash {hash} to manifest", name, BitConverter.ToString(hash).Replace("-", string.Empty));
             Manifest.AddEntry(name, hash);
 
             if (Manifest.StoreOriginalFiles)
@@ -346,6 +383,9 @@ namespace SAPTeam.EasySign
 
             Logger.LogInformation("Deleting entry: {name}", entryName);
 
+            CheckEntryNameSecurity(entryName);
+
+            Logger.LogDebug("Deleting entry: {name} from manifest", entryName);
             Manifest.DeleteEntry(entryName);
 
             if (Manifest.StoreOriginalFiles)
@@ -551,6 +591,11 @@ namespace SAPTeam.EasySign
             }
 
             Stream stream;
+
+            if (!CheckEntryNameSecurity(entryName, false))
+            {
+                readSource = ReadSource.Bundle;
+            }
 
             if (readSource != ReadSource.Disk && (readSource == ReadSource.Bundle || Manifest.StoreOriginalFiles))
             {
