@@ -33,7 +33,12 @@ namespace SAPTeam.EasySign.CommandLine
             }
 
             if (!Bundle.IsLoaded && File.Exists(Bundle.BundlePath))
+            {
+                statusContext.Status("[yellow]Loading Bundle[/]");
                 Bundle.LoadFromFile(false);
+            }
+
+            statusContext.Status("[yellow]Adding Files[/]");
 
             Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
             {
@@ -58,12 +63,15 @@ namespace SAPTeam.EasySign.CommandLine
                 throw new ApplicationException("Bundle is not initialized");
             }
 
+            statusContext.Status("[yellow]Loading Bundle[/]");
             Bundle.LoadFromFile(false);
 
             int divider = 0;
             foreach (var cert in certificates)
             {
                 if (divider++ > 0) AnsiConsole.WriteLine();
+
+                statusContext.Status("[yellow]Loading certificate informations[/]");
 
                 var grid = new Grid();
                 grid.AddColumn(new GridColumn().NoWrap());
@@ -78,8 +86,13 @@ namespace SAPTeam.EasySign.CommandLine
 
                 AnsiConsole.Write(grid);
                 AnsiConsole.WriteLine();
+
+                statusContext.Status("[yellow]Verifying Certificate[/]");
+
                 bool verifyCert = VerifyCertificate(cert);
                 if (!verifyCert) continue;
+
+                statusContext.Status("[yellow]Preparing for signing[/]");
 
                 var prvKey = cert.GetRSAPrivateKey();
                 if (prvKey == null)
@@ -87,6 +100,8 @@ namespace SAPTeam.EasySign.CommandLine
                     AnsiConsole.MarkupLine($"[{Color.Green}] Failed to Acquire RSA Private Key[/]");
                     continue;
                 }
+
+                statusContext.Status("[yellow]Signing Bundle[/]");
 
                 Bundle.Sign(cert, prvKey);
                 AnsiConsole.MarkupLine($"[green] Signing Completed Successfully[/]");
@@ -115,7 +130,10 @@ namespace SAPTeam.EasySign.CommandLine
                 ["file_error"] = Color.Red3_1,
             };
 
+            statusContext.Status("[yellow]Loading Bundle[/]");
             Bundle.LoadFromFile();
+
+            statusContext.Status("[yellow]Verification Phase 1: Certificates and signatures[/]");
 
             int verifiedCerts = 0;
             int divider = 0;
@@ -157,7 +175,7 @@ namespace SAPTeam.EasySign.CommandLine
 
             AnsiConsole.WriteLine();
 
-            statusContext.Status("[yellow]Verifying Files[/]");
+            statusContext.Status("[yellow]Verification Phase 2: Files[/]");
 
             bool p2Verified = true;
 

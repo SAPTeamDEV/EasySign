@@ -17,13 +17,14 @@ namespace SAPTeam.EasySign.CommandLine
         /// <summary>
         /// Runs the specified action within a status context, provides fancy progress showing.
         /// </summary>
+        /// <param name="initialStatus">The initial status being shown at the start of status context. Spectre.Console coloring is supported.</param>
         /// <param name="action">The action to run within the status context.</param>
-        public static void RunInStatusContext(Action<StatusContext> action)
+        public static void RunInStatusContext(string initialStatus, Action<StatusContext> action)
         {
             AnsiConsole.Status()
                 .AutoRefresh(true)
                 .Spinner(Spinner.Known.Default)
-                .Start("", action);
+                .Start(initialStatus, action);
         }
 
         /// <summary>
