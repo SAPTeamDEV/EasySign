@@ -43,8 +43,18 @@ namespace SAPTeam.EasySign.CommandLine
             Parallel.ForEach(Utilities.SafeEnumerateFiles(Bundle.RootPath, "*"), file =>
             {
                 if (file == Bundle.BundlePath) return;
-                Bundle.AddEntry(file);
-                AnsiConsole.MarkupLine($"[blue]Added:[/] {Path.GetRelativePath(Bundle.RootPath, file)}");
+
+                var entryName = Manifest.GetNormalizedEntryName(Path.GetRelativePath(Bundle.RootPath, file));
+
+                if (Bundle.Manifest.Entries.ContainsKey(entryName))
+                {
+                    AnsiConsole.MarkupLine($"[{Color.Orange1}]Exists:[/] {entryName}");
+                }
+                else
+                {
+                    Bundle.AddEntry(file);
+                    AnsiConsole.MarkupLine($"[blue]Added:[/] {entryName}");
+                }
             });
 
             statusContext.Status("[yellow]Saving Bundle[/]");
