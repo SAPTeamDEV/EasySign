@@ -11,9 +11,9 @@ namespace SAPTeam.EasySign.Cli
 {
     internal class BundleCommandProvider : CommandProvider<Bundle>
     {
-        public override void InitializeBundle(string workingDirectory, string bundleName)
+        public override void InitializeBundle(string bundlePath)
         {
-            Bundle = new Bundle(workingDirectory, bundleName);
+            Bundle = new Bundle(bundlePath);
         }
 
         public override RootCommand GetRootCommand()
