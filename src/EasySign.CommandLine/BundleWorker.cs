@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
+﻿using System.Security.Cryptography.X509Certificates;
 
 using Microsoft.Extensions.Logging;
 
@@ -54,7 +51,7 @@ namespace SAPTeam.EasySign.CommandLine
             statusContext.Status("[yellow]Adding Files[/]");
 
             Logger.LogDebug("Discovering files in the directory: {RootPath}", Bundle.RootPath);
-            var foundFiles = Utilities.SafeEnumerateFiles(Bundle.RootPath, "*").ToArray();
+            string[] foundFiles = Utilities.SafeEnumerateFiles(Bundle.RootPath, "*").ToArray();
             Logger.LogInformation("Discovered {FileCount} files", foundFiles.Count());
 
             Logger.LogInformation("Starting file adder multi-thread task");
@@ -62,7 +59,7 @@ namespace SAPTeam.EasySign.CommandLine
             _ = Parallel.ForEach(foundFiles, (file, state) =>
             {
                 if (file == Bundle.BundlePath) return;
-                var entryName = Manifest.GetNormalizedEntryName(Path.GetRelativePath(Bundle.RootPath, file));
+                string entryName = Manifest.GetNormalizedEntryName(Path.GetRelativePath(Bundle.RootPath, file));
 
                 Logger.LogInformation("Processing file: {EntryName}", entryName);
 
@@ -88,7 +85,7 @@ namespace SAPTeam.EasySign.CommandLine
                     else
                     {
                         Logger.LogDebug("Adding entry: {EntryName}", entryName);
-                        
+
                         Bundle.AddEntry(file);
 
                         Logger.LogInformation("Entry: {EntryName} Added", entryName);
@@ -159,14 +156,14 @@ namespace SAPTeam.EasySign.CommandLine
             int divider = 0;
             int signs = 0;
 
-            foreach (var cert in certificates)
+            foreach (X509Certificate2 cert in certificates)
             {
                 if (divider++ > 0) AnsiConsole.WriteLine();
 
                 Logger.LogDebug("Loading certificate information for {Cert}", cert);
                 statusContext.Status("[yellow]Loading certificate informations[/]");
 
-                var grid = new Grid();
+                Grid grid = new Grid();
                 grid.AddColumn(new GridColumn().NoWrap());
                 grid.AddColumn(new GridColumn().PadLeft(2));
                 grid.AddRow("Certificate Info:");
@@ -193,7 +190,7 @@ namespace SAPTeam.EasySign.CommandLine
                 Logger.LogDebug("Acquiring RSA private key for {cert}", cert);
                 statusContext.Status("[yellow]Preparing for signing[/]");
 
-                var prvKey = cert.GetRSAPrivateKey();
+                System.Security.Cryptography.RSA? prvKey = cert.GetRSAPrivateKey();
                 if (prvKey == null)
                 {
                     Logger.LogError("Failed to acquire RSA private key for {cert}", cert);
@@ -239,7 +236,7 @@ namespace SAPTeam.EasySign.CommandLine
                 throw new ApplicationException("Bundle is not initialized");
             }
 
-            var colorDict = new Dictionary<string, Color>()
+            Dictionary<string, Color> colorDict = new Dictionary<string, Color>()
             {
                 ["file_verified"] = Color.MediumSpringGreen,
                 ["file_failed"] = Color.OrangeRed1,
@@ -257,16 +254,16 @@ namespace SAPTeam.EasySign.CommandLine
             int verifiedCerts = 0;
             int divider = 0;
 
-            foreach (var certificateHash in Bundle.Signatures.Entries.Keys)
+            foreach (string certificateHash in Bundle.Signatures.Entries.Keys)
             {
                 if (divider++ > 0) AnsiConsole.WriteLine();
 
-                var certificate = Bundle.GetCertificate(certificateHash);
+                X509Certificate2 certificate = Bundle.GetCertificate(certificateHash);
 
                 Logger.LogDebug("Verifying certificate {cert}", certificate);
                 AnsiConsole.MarkupLine($"Verifying Certificate [{Color.Teal}]{certificate.GetNameInfo(X509NameType.SimpleName, false)}[/] Issued by [{Color.Aqua}]{certificate.GetNameInfo(X509NameType.SimpleName, true)}[/]");
 
-                var verifyCert = VerifyCertificate(certificate);
+                bool verifyCert = VerifyCertificate(certificate);
                 if (!verifyCert)
                 {
                     Logger.LogWarning("Skipping signature verification for {cert}", certificate);
@@ -274,7 +271,7 @@ namespace SAPTeam.EasySign.CommandLine
                 }
 
                 Logger.LogDebug("Verifying signature for certificate {cert}", certificate);
-                var verifySign = Bundle.VerifySignature(certificateHash);
+                bool verifySign = Bundle.VerifySignature(certificateHash);
                 AnsiConsole.MarkupLine($"[{(verifySign ? Color.Green : Color.Red)}] Signature Verification {(verifySign ? "Successful" : "Failed")}[/]");
                 if (!verifySign)
                 {
@@ -326,7 +323,7 @@ namespace SAPTeam.EasySign.CommandLine
 
             _ = Parallel.ForEach(Bundle.Manifest.Entries, (entry) =>
             {
-                var verifyFile = false;
+                bool verifyFile = false;
 
                 Logger.LogDebug("Verifying file {file}", entry.Key);
 
@@ -399,10 +396,10 @@ namespace SAPTeam.EasySign.CommandLine
                 throw new ApplicationException("Bundle is not initialized");
             }
 
-            List<bool> verifyResults = new();
+            List<bool> verifyResults = [];
 
             Logger.LogDebug("Verifying certificate {cert} with default verification policy", certificate);
-            var defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
+            bool defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
             verifyResults.Add(defaultVerification);
 
             Logger.LogInformation("Certificate verification with default policy for {cert}: {result}", certificate, defaultVerification);
@@ -418,10 +415,10 @@ namespace SAPTeam.EasySign.CommandLine
                 {
                     Logger.LogWarning("Certificate has time validity issues, retrying verification with time check disabled");
 
-                    var policy = new X509ChainPolicy();
+                    X509ChainPolicy policy = new X509ChainPolicy();
                     policy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
 
-                    var noTimeVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] noTimeStatuses, policy: policy);
+                    bool noTimeVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] noTimeStatuses, policy: policy);
                     verifyResults.Add(noTimeVerification);
 
                     Logger.LogInformation("Certificate verification without time checking for {cert}: {result}", certificate, noTimeVerification);

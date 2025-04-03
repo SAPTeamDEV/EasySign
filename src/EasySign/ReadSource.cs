@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace SAPTeam.EasySign
+﻿namespace SAPTeam.EasySign
 {
     /// <summary>
     /// Specifies the source from which to read the data.

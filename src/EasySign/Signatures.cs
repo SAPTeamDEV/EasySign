@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Serialization;
 
 namespace SAPTeam.EasySign
 {
@@ -16,7 +10,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Gets or sets the signature entries.
         /// </summary>
-        public Dictionary<string, byte[]> Entries { get; set; } = new();
+        public Dictionary<string, byte[]> Entries { get; set; } = [];
     }
 
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]

@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
 using System.Data;
-using System.Linq;
-using System.Text;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 
 namespace SAPTeam.EasySign
 {
@@ -25,14 +20,7 @@ namespace SAPTeam.EasySign
         /// </remarks>
         public SortedDictionary<string, byte[]> Entries
         {
-            get
-            {
-                return new(entries);
-            }
-            set
-            {
-                entries = new(value);
-            }
+            get => new(entries); set => entries = new(value);
         }
 
         /// <summary>
@@ -43,7 +31,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Gets or sets the list of entry names that should be protected by the bundle from accidental modifications.
         /// </summary>
-        public List<string> ProtectedEntryNames { get; set; } = new();
+        public List<string> ProtectedEntryNames { get; set; } = [];
 
         /// <summary>
         /// Gets the entries as a thread-safe concurrent dictionary.
@@ -93,10 +81,7 @@ namespace SAPTeam.EasySign
         /// <returns>
         /// The normalized entry name.
         /// </returns>
-        public static string GetNormalizedEntryName(string path)
-        {
-            return new UnifiedPath.OSPath(path).Unix;
-        }
+        public static string GetNormalizedEntryName(string path) => new UnifiedPath.OSPath(path).Unix;
     }
 
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, WriteIndented = false, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]

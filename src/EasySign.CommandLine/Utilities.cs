@@ -1,9 +1,5 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
 
 using Spectre.Console;
 
@@ -80,22 +76,24 @@ namespace SAPTeam.EasySign.CommandLine
         /// <returns>A collection of certificates.</returns>
         public static X509Certificate2Collection GetCertificates(string pfxFilePath, string pfxFilePassword, bool pfxNoPasswordPrompt)
         {
-            X509Certificate2Collection collection = new();
+            X509Certificate2Collection collection = [];
 
             if (!string.IsNullOrEmpty(pfxFilePath))
             {
                 string pfpass = !string.IsNullOrEmpty(pfxFilePassword) ? pfxFilePassword : !pfxNoPasswordPrompt ? SecurePrompt("Enter PFX File password (if needed): ") : "";
 
 #if NET9_0_OR_GREATER
-                    var tempCollection = X509CertificateLoader.LoadPkcs12CollectionFromFile(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
+                X509Certificate2Collection tempCollection = X509CertificateLoader.LoadPkcs12CollectionFromFile(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
 #else
-                var tempCollection = new X509Certificate2Collection();
+                X509Certificate2Collection tempCollection = [];
                 tempCollection.Import(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
 #endif
 
-                var cond = tempCollection.Where(x => x.HasPrivateKey);
+                IEnumerable<X509Certificate2> cond = tempCollection.Where(x => x.HasPrivateKey);
                 if (cond.Any())
+                {
                     collection.AddRange(cond.ToArray());
+                }
                 else
                 {
                     collection.AddRange(tempCollection);
@@ -106,13 +104,13 @@ namespace SAPTeam.EasySign.CommandLine
                 X509Store store = new X509Store("MY", StoreLocation.CurrentUser);
                 store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
 
-                var mapping = new Dictionary<string, X509Certificate2>();
-                foreach (var cert in store.Certificates)
+                Dictionary<string, X509Certificate2> mapping = [];
+                foreach (X509Certificate2 cert in store.Certificates)
                 {
                     mapping[$"{cert.GetNameInfo(X509NameType.SimpleName, false)},{cert.GetNameInfo(X509NameType.SimpleName, true)},{cert.Thumbprint}"] = cert;
                 }
 
-                var selection = AnsiConsole.Prompt(
+                List<string> selection = AnsiConsole.Prompt(
                     new MultiSelectionPrompt<string>()
                         .PageSize(10)
                         .Title("Select Signing Certificates")
@@ -146,7 +144,7 @@ namespace SAPTeam.EasySign.CommandLine
         /// <param name="statuses">The array of X509 chain statuses.</param>
         public static void EnumerateStatuses(X509ChainStatus[] statuses)
         {
-            foreach (var status in statuses)
+            foreach (X509ChainStatus status in statuses)
             {
                 AnsiConsole.MarkupLine($"[{Color.IndianRed}]   {status.StatusInformation}[/]");
             }

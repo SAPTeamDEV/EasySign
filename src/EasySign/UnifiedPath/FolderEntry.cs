@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SAPTeam.EasySign.UnifiedPath
+﻿namespace SAPTeam.EasySign.UnifiedPath
 {
 
     /// <summary>

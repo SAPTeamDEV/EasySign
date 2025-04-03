@@ -21,10 +21,7 @@ namespace SAPTeam.EasySign.UnifiedPath
         /// Initializes a new instance of the <see cref="OSPath"/> class with the specified text.
         /// </summary>
         /// <param name="text">The path text.</param>
-        public OSPath(string text)
-        {
-            Text = text.Trim();
-        }
+        public OSPath(string text) => Text = text.Trim();
 
         /// <summary>
         /// Implicitly converts a string to an <see cref="OSPath"/>.

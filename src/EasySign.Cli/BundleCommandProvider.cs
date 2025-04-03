@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.CommandLine;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.CommandLine;
 
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +8,7 @@ namespace SAPTeam.EasySign.Cli
 {
     internal class BundleCommandProvider : CommandProvider<Bundle>
     {
-        ILogger _bundleLogger;
+        private readonly ILogger _bundleLogger;
 
         public BundleCommandProvider(ILogger logger, ILogger bundleLogger)
         {
@@ -29,7 +24,7 @@ namespace SAPTeam.EasySign.Cli
 
         public override RootCommand GetRootCommand()
         {
-            var root = new RootCommand("Easy Digital Signing Tool")
+            RootCommand root = new RootCommand("Easy Digital Signing Tool")
             {
                 Add,
                 Sign,

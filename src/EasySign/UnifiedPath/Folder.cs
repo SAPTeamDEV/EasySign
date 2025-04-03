@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using System.Linq;
-using System.Reflection;
-using static System.IO.Path;
-
-namespace SAPTeam.EasySign.UnifiedPath
+﻿namespace SAPTeam.EasySign.UnifiedPath
 {
     /// <summary>
     /// Represents a folder in the file system and provides methods to interact with it.

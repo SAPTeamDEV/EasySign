@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.CommandLine;
+﻿using System.CommandLine;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using Spectre.Console;
 
 namespace SAPTeam.EasySign.CommandLine
 {
@@ -41,13 +36,13 @@ namespace SAPTeam.EasySign.CommandLine
         {
             get
             {
-                var replaceOpt = new Option<bool>("--replace", "Replace existing entries");
+                Option<bool> replaceOpt = new Option<bool>("--replace", "Replace existing entries");
                 replaceOpt.AddAlias("-r");
 
-                var continueOpt = new Option<bool>("--continue", "Continue adding files if an error occurs");
+                Option<bool> continueOpt = new Option<bool>("--continue", "Continue adding files if an error occurs");
                 continueOpt.AddAlias("-c");
 
-                var command = new Command("add", "Create new bundle or update an existing one")
+                Command command = new Command("add", "Create new bundle or update an existing one")
                     {
                         BundlePath,
                         replaceOpt,
@@ -71,11 +66,11 @@ namespace SAPTeam.EasySign.CommandLine
         {
             get
             {
-                var pfxOpt = new Option<string>("--pfx", "PFX File contains certificate and private key");
-                var pfxPassOpt = new Option<string>("--pfx-password", "PFX File password");
-                var pfxNoPassOpt = new Option<bool>("--no-password", "Ignore PFX File password prompt");
+                Option<string> pfxOpt = new Option<string>("--pfx", "PFX File contains certificate and private key");
+                Option<string> pfxPassOpt = new Option<string>("--pfx-password", "PFX File password");
+                Option<bool> pfxNoPassOpt = new Option<bool>("--no-password", "Ignore PFX File password prompt");
 
-                var command = new Command("sign", "Sign bundle with certificate")
+                Command command = new Command("sign", "Sign bundle with certificate")
                     {
                         BundlePath,
                         pfxOpt,
@@ -102,7 +97,7 @@ namespace SAPTeam.EasySign.CommandLine
         {
             get
             {
-                var command = new Command("verify", "Verify bundle")
+                Command command = new Command("verify", "Verify bundle")
                     {
                         BundlePath,
                     };

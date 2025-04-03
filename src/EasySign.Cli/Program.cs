@@ -1,23 +1,13 @@
-﻿using System.Collections.Concurrent;
-using System.CommandLine;
-using System.IO;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+﻿using System.CommandLine;
 
 using Serilog;
 using Serilog.Extensions.Logging;
-
-using Spectre.Console;
 
 namespace SAPTeam.EasySign.Cli
 {
     internal class Program
     {
-        static int Main(string[] args)
+        private static int Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
                 .Enrich.WithThreadId()
@@ -29,23 +19,22 @@ namespace SAPTeam.EasySign.Cli
                 .MinimumLevel.Debug() // Minimum log level
                 .CreateLogger();
 
-            var appLogger = Log.Logger.ForContext("Context", "Main");
+            Serilog.ILogger appLogger = Log.Logger.ForContext("Context", "Main");
             appLogger.Information("Starting EasySign CLI at {DateTime}", DateTime.Now);
 
-            var bundleLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "Bundle"))
-                .CreateLogger("CommandProvider");
-            
-            var commandProviderLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "CommandProvider"))
+            Microsoft.Extensions.Logging.ILogger bundleLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "Bundle"))
                 .CreateLogger("CommandProvider");
 
-            var root = new BundleCommandProvider(commandProviderLogger, bundleLogger).GetRootCommand();
-            var exitCode = root.Invoke(args);
+            Microsoft.Extensions.Logging.ILogger commandProviderLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "CommandProvider"))
+                .CreateLogger("CommandProvider");
+
+            RootCommand root = new BundleCommandProvider(commandProviderLogger, bundleLogger).GetRootCommand();
+            int exitCode = root.Invoke(args);
 
             appLogger.Information("Shutting down EasySign CLI at {DateTime} with exit code {ExitCode}", DateTime.Now, exitCode);
 
             Log.CloseAndFlush();
             return exitCode;
         }
-
     }
 }
