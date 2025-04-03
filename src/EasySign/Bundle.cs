@@ -619,14 +619,14 @@ namespace SAPTeam.EasySign
         }
 
         /// <summary>
-        /// Gets a stream for an entry in the bundle and caches the entry data if the bundle is Read-only.
+        /// Gets a read-only stream for an entry in the bundle and caches the entry data if the bundle is Read-only.
         /// </summary>
         /// <remarks>
         /// Protected entries are only resolved with <see cref="ReadSource.Bundle"/>.
         /// </remarks>
         /// <param name="entryName">The name of the entry to get the stream for.</param>
         /// <param name="readSource">The source from which to read the data.</param>
-        /// <returns>A stream for the entry.</returns>
+        /// <returns>A read-only stream for the entry.</returns>
         public Stream GetStream(string entryName, ReadSource readSource = ReadSource.Both)
         {
             Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
