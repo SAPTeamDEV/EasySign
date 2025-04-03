@@ -20,7 +20,7 @@ namespace SAPTeam.EasySign
         /// Gets or sets the entries in the manifest as a sorted dictionary.
         /// </summary>
         /// <remarks>
-        /// Note this property is only for serialization purposes. Use <see cref="GetConcurrentDictionary"/> to get the entries as a concurrent dictionary.
+        /// Note that this property is only for serialization purposes. Use <see cref="GetEntries"/> to get the entries as a concurrent dictionary.
         /// you can use this property to get a copy of the entries as a sorted dictionary but any changes made to it will be ignored.
         /// </remarks>
         public SortedDictionary<string, byte[]> Entries
@@ -41,10 +41,15 @@ namespace SAPTeam.EasySign
         public bool StoreOriginalFiles { get; set; }
 
         /// <summary>
+        /// Gets or sets the list of entry names that should be protected by the bundle from accidental modifications.
+        /// </summary>
+        public List<string> ProtectedEntryNames { get; set; } = new();
+
+        /// <summary>
         /// Gets the entries as a thread-safe concurrent dictionary.
         /// </summary>
         /// <returns>A concurrent dictionary containing the entries.</returns>
-        public ConcurrentDictionary<string, byte[]> GetConcurrentDictionary() => entries;
+        public ConcurrentDictionary<string, byte[]> GetEntries() => entries;
 
         /// <summary>
         /// Adds an entry to the manifest.

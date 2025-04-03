@@ -54,10 +54,11 @@ namespace SAPTeam.EasySign
         /// Gets the list of sensitive names. Regex patterns are supported.
         /// </summary>
         /// <remarks>
-        /// These names are not allowed for add or delete.
+        /// These names are not allowed for add or delete through <see cref="AddEntry(string, string, string)"/> or <see cref="DeleteEntry(string)"/>.
         /// The entries with these names are only resolved with <see cref="ReadSource.Bundle"/>.
+        /// This feature is only designed to prevent accidental modification of important files.
         /// </remarks>
-        protected List<string> ProtectedNames { get; } = new()
+        protected List<string> ProtectedEntryNames { get; private set; } = new()
         {
             ".manifest.ec",
             ".signatures.ec",
@@ -164,7 +165,7 @@ namespace SAPTeam.EasySign
         /// <returns>True if the entry name is not protected; otherwise, false.</returns>
         protected bool CheckEntryNameSecurity(string entryName, bool throwException = true)
         {
-            foreach (var pattern in ProtectedNames)
+            foreach (var pattern in ProtectedEntryNames)
             {
                 if (Regex.IsMatch(entryName, pattern))
                 {
@@ -333,6 +334,10 @@ namespace SAPTeam.EasySign
             {
                 Logger.LogDebug("Parsing manifest");
                 Manifest = JsonSerializer.Deserialize(entry.Open(), typeof(Manifest), SourceGenerationManifestContext.Default) as Manifest ?? new Manifest();
+
+                var protectedEntries = ProtectedEntryNames.Union(Manifest.ProtectedEntryNames).ToList();
+                ProtectedEntryNames = protectedEntries;
+                Manifest.ProtectedEntryNames = protectedEntries;
             }
             else
             {
@@ -476,7 +481,7 @@ namespace SAPTeam.EasySign
             Logger.LogInformation("Verifying file integrity: {name}", entryName);
 
             byte[] hash = Bundle.ComputeSHA512Hash(GetStream(entryName));
-            bool result = Manifest.GetConcurrentDictionary()[entryName].SequenceEqual(hash);
+            bool result = Manifest.GetEntries()[entryName].SequenceEqual(hash);
 
             Logger.LogInformation("File integrity verification result for {name}: {result}", entryName, result);
 
