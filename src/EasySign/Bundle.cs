@@ -686,7 +686,10 @@ namespace SAPTeam.EasySign
 
             using (ZipArchive zip = OpenZipArchive(ZipArchiveMode.Update))
             {
-                Logger.LogDebug("Deleting pending files from the bundle");
+                if (_pendingForRemove.Count > 0)
+                {
+                    Logger.LogDebug("Deleting pending files from the bundle");
+                }
 
                 ZipArchiveEntry? tempEntry;
                 foreach (var entryName in _pendingForRemove)
@@ -702,7 +705,11 @@ namespace SAPTeam.EasySign
                     }
                 }
 
-                Logger.LogDebug("Raising OnUpdating event");
+                if (OnUpdating != null)
+                {
+                    Logger.LogDebug("Invoking OnUpdating event");
+                }
+
                 OnUpdating?.Invoke(zip);
 
                 Logger.LogDebug("Writing manifest to the bundle");
@@ -713,7 +720,11 @@ namespace SAPTeam.EasySign
                 var signatureData = Export(Signatures, SourceGenerationSignaturesContext.Default);
                 WriteEntry(zip, ".signatures.ec", signatureData);
 
-                Logger.LogDebug("Writing pending files to the bundle");
+                if (_pendingForAdd.Count > 0)
+                {
+                    Logger.LogDebug("Writing pending files to the bundle");
+                }
+
                 foreach (var newFile in _pendingForAdd)
                 {
                     WriteEntry(zip, newFile.Key, newFile.Value);
