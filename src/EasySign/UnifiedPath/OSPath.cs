@@ -3,7 +3,7 @@
 namespace SAPTeam.EasySign.UnifiedPath
 {
     /// <summary>
-    /// Represents an operating system path and provides methods for path manipulation.
+    /// Represents an operating system path and provides methods for path conversion and manipulation.
     /// </summary>
     public class OSPath
     {
@@ -27,18 +27,15 @@ namespace SAPTeam.EasySign.UnifiedPath
         /// Implicitly converts a string to an <see cref="OSPath"/>.
         /// </summary>
         /// <param name="text">The path text.</param>
-        public static implicit operator OSPath(string text) => text == null ? null : new OSPath(text);
+        public static implicit operator OSPath(string text) => new OSPath(text);
 
         /// <summary>
         /// Implicitly converts an <see cref="OSPath"/> to a string.
         /// </summary>
         /// <param name="path">The OSPath instance.</param>
-        public static implicit operator string(OSPath path) => path?.Normalized;
+        public static implicit operator string(OSPath path) => path.Normalized;
 
-        /// <summary>
-        /// Returns the normalized path as a string.
-        /// </summary>
-        /// <returns>The normalized path.</returns>
+        /// <inheritdoc/>
         public override string ToString() => Normalized;
 
         /// <summary>
@@ -62,14 +59,9 @@ namespace SAPTeam.EasySign.UnifiedPath
         public string Unix => Simplified.Text.Replace('\\', '/');
 
         /// <summary>
-        /// Gets the relative path.
+        /// Gets the path without the root or drive letter.
         /// </summary>
         public OSPath Relative => Simplified.Text.TrimStart('/', '\\');
-
-        /// <summary>
-        /// Gets the absolute path.
-        /// </summary>
-        public OSPath Absolute => IsAbsolute ? this : "/" + Relative;
 
         /// <summary>
         /// Gets a value indicating whether the path is absolute.
@@ -82,27 +74,46 @@ namespace SAPTeam.EasySign.UnifiedPath
         public bool IsRooted => Text.Length >= 1 && (Text[0] == '/' || Text[0] == '\\');
 
         /// <summary>
-        /// Gets a value indicating whether the path has a volume.
+        /// Gets a value indicating whether the path has a drive letter.
         /// </summary>
         public bool HasVolume => Text.Length >= 2 && Text[1] == ':';
 
         /// <summary>
-        /// Gets the simplified path.
+        /// Gets the rooted path without the drive letter.
         /// </summary>
         public OSPath Simplified => HasVolume ? Text.Substring(2) : Text;
 
         /// <summary>
         /// Gets the parent directory of the path.
         /// </summary>
-        public OSPath Parent => GetDirectoryName(Text);
+        public OSPath Parent
+        {
+            get
+            {
+                var parent = GetDirectoryName(Text);
+
+                if (parent == null)
+                {
+                    var root = GetPathRoot(Text);
+
+                    if (root == null)
+                    {
+                        return Empty;
+                    }
+
+                    return root;
+                }
+
+                return parent;
+            }
+        }
 
         /// <summary>
         /// Determines whether the current path contains the specified path.
         /// </summary>
         /// <param name="path">The path to check.</param>
         /// <returns><c>true</c> if the current path contains the specified path; otherwise, <c>false</c>.</returns>
-        public bool Contains(OSPath path) =>
-            Normalized.StartsWith(path);
+        public bool Contains(OSPath path) => Normalized.StartsWith(path);
 
         /// <summary>
         /// Concatenates two paths.
