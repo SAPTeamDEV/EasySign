@@ -332,7 +332,7 @@ namespace SAPTeam.EasySign.CommandLine
 
                 try
                 {
-                    verifyFile = Bundle.VerifyFileIntegrity(entry.Key);
+                    verifyFile = Bundle.VerifyFile(entry.Key);
 
                     if (verifyFile)
                     {

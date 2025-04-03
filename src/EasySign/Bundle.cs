@@ -114,7 +114,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Occurs when the bundle file is being updated.
         /// </summary>
-        public event Action<ZipArchive>? OnUpdating;
+        public event Action<ZipArchive>? Updating;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Bundle"/> class.
@@ -228,7 +228,7 @@ namespace SAPTeam.EasySign
         /// </summary>
         /// <param name="mode">The mode in which to open the archive.</param>
         /// <returns>A <see cref="ZipArchive"/> for the bundle.</returns>
-        public ZipArchive OpenZipArchive(ZipArchiveMode mode = ZipArchiveMode.Read)
+        public ZipArchive GetZipArchive(ZipArchiveMode mode = ZipArchiveMode.Read)
         {
             if (mode != ZipArchiveMode.Read) EnsureWritable();
 
@@ -285,7 +285,7 @@ namespace SAPTeam.EasySign
             }
 
             ReadOnly = readOnly;
-            using var zip = OpenZipArchive();
+            using var zip = GetZipArchive();
             Parse(zip);
 
             Loaded = true;
@@ -294,8 +294,11 @@ namespace SAPTeam.EasySign
         }
 
         /// <summary>
-        /// Loads the bundle from a byte array. This method is more secure than loading from the file as it stores the bundle in memory.
+        /// Loads the bundle from a byte array.
         /// </summary>
+        /// <remarks>
+        /// This method is more secure and faster than loading from the file as it stores the bundle in memory.
+        /// </remarks>
         /// <param name="bundleContent">The byte array containing the bundle content.</param>
         public void LoadFromBytes(byte[] bundleContent)
         {
@@ -309,7 +312,7 @@ namespace SAPTeam.EasySign
             ReadOnly = true;
             _rawZipContents = bundleContent;
 
-            using var zip = OpenZipArchive();
+            using var zip = GetZipArchive();
             Parse(zip);
 
             Loaded = true;
@@ -379,7 +382,7 @@ namespace SAPTeam.EasySign
 
             CheckEntryNameSecurity(name);
 
-            var hash = ComputeSHA512Hash(file);
+            var hash = Bundle.ComputeSHA512Hash(file);
 
             if (Manifest.StoreOriginalFiles && !string.IsNullOrEmpty(destinationPath) && destinationPath != "./")
             {
@@ -466,13 +469,13 @@ namespace SAPTeam.EasySign
         /// </summary>
         /// <param name="entryName">The name of the entry to verify.</param>
         /// <returns>True if the file is valid; otherwise, false.</returns>
-        public bool VerifyFileIntegrity(string entryName)
+        public bool VerifyFile(string entryName)
         {
             Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
 
             Logger.LogInformation("Verifying file integrity: {name}", entryName);
 
-            byte[] hash = ComputeSHA512Hash(GetStream(entryName));
+            byte[] hash = Bundle.ComputeSHA512Hash(GetStream(entryName));
             bool result = Manifest.GetConcurrentDictionary()[entryName].SequenceEqual(hash);
 
             Logger.LogInformation("File integrity verification result for {name}: {result}", entryName, result);
@@ -654,7 +657,7 @@ namespace SAPTeam.EasySign
             {
                 Logger.LogDebug("Reading file: {name} from the bundle", entryName);
 
-                using var zip = OpenZipArchive();
+                using var zip = GetZipArchive();
 
                 var entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
                 stream = entry.Open();
@@ -684,7 +687,7 @@ namespace SAPTeam.EasySign
 
             Logger.LogInformation("Updating bundle file: {file}", BundlePath);
 
-            using (ZipArchive zip = OpenZipArchive(ZipArchiveMode.Update))
+            using (ZipArchive zip = GetZipArchive(ZipArchiveMode.Update))
             {
                 if (_pendingForRemove.Count > 0)
                 {
@@ -705,12 +708,12 @@ namespace SAPTeam.EasySign
                     }
                 }
 
-                if (OnUpdating != null)
+                if (Updating != null)
                 {
-                    Logger.LogDebug("Invoking OnUpdating event");
+                    Logger.LogDebug("Invoking Updating event");
                 }
 
-                OnUpdating?.Invoke(zip);
+                Updating?.Invoke(zip);
 
                 Logger.LogDebug("Writing manifest to the bundle");
                 var manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
@@ -813,7 +816,7 @@ namespace SAPTeam.EasySign
         /// </summary>
         /// <param name="stream">The stream to read.</param>
         /// <returns>A byte array containing the stream data.</returns>
-        private static byte[] ReadStream(Stream stream)
+        protected static byte[] ReadStream(Stream stream)
         {
             Ensure.Any.IsNotNull(stream, nameof(stream));
 
@@ -842,7 +845,7 @@ namespace SAPTeam.EasySign
         /// </summary>
         /// <param name="stream">The stream to hash.</param>
         /// <returns>A byte array containing the hash.</returns>
-        static byte[] ComputeSHA512Hash(Stream stream)
+        protected static byte[] ComputeSHA512Hash(Stream stream)
         {
             Ensure.Any.IsNotNull(stream, nameof(stream));
 
@@ -855,7 +858,7 @@ namespace SAPTeam.EasySign
         /// </summary>
         /// <param name="data">The data to hash.</param>
         /// <returns>A byte array containing the hash.</returns>
-        static byte[] ComputeSHA512Hash(byte[] data)
+        protected static byte[] ComputeSHA512Hash(byte[] data)
         {
             Ensure.Collection.HasItems(data, nameof(data));
 

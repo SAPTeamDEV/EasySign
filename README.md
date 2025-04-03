@@ -66,8 +66,8 @@ bool isCertificateValid = bundle.VerifyCertificate(certificateHash);
 bool isSignatureValid = bundle.VerifySignature(certificateHash);
 
 // Verify files integrity
-bool isFileValid = bundle.VerifyFileIntegrity("file1.txt");
-bool isFile2Valid = bundle.VerifyFileIntegrity("file2.txt");
+bool isFileValid = bundle.VerifyFile("file1.txt");
+bool isFile2Valid = bundle.VerifyFile("file2.txt");
 
 ```
 
