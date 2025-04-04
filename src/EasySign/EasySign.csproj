@@ -35,6 +35,6 @@
     <PackageReference Include="System.Text.Json" Version="9.0.3" />
   </ItemGroup>
   
-  <Import Project="$(RepoRootPath)\Library.props" />
+  <Import Project="$(RepoRootPath)\build\Library.props" />
 
 </Project>
