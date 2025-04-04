@@ -475,7 +475,8 @@ namespace SAPTeam.EasySign
 
             Logger.LogInformation("Verifying file integrity: {name}", entryName);
 
-            byte[] hash = Bundle.ComputeSHA512Hash(GetStream(entryName));
+            using Stream stream = GetStream(entryName);
+            byte[] hash = ComputeSHA512Hash(stream);
             bool result = Manifest.GetEntries()[entryName].SequenceEqual(hash);
 
             Logger.LogInformation("File integrity verification result for {name}: {result}", entryName, result);
@@ -498,7 +499,7 @@ namespace SAPTeam.EasySign
 
             Logger.LogInformation("Verifying signature with certificate: {name}", certificate.Subject);
 
-            byte[] manifestHash = GetBytes(".manifest.ec", ReadSource.Bundle);
+            byte[] manifestHash = ComputeSHA512Hash(GetBytes(".manifest.ec", ReadSource.Bundle));
             bool result = pubKey.VerifyHash(manifestHash, hash, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
             Logger.LogInformation("Signature verification result for certificate {name}: {result}", certificate.Subject, result);
@@ -607,7 +608,8 @@ namespace SAPTeam.EasySign
 
             if (!_cache.TryGetValue(entryName, out byte[]? data))
             {
-                data = ReadStream(GetStream(entryName, readSource));
+                using Stream stream = GetStream(entryName, readSource);
+                data = ReadStream(stream);
 
                 _ = CacheEntry(entryName, data);
             }
@@ -639,19 +641,19 @@ namespace SAPTeam.EasySign
             {
                 Logger.LogDebug("Entry {name} not found in cache", entryName);
             }
-
-            Stream stream;
-
+                        
             if (!CheckEntryNameSecurity(entryName, false))
             {
                 readSource = ReadSource.Bundle;
             }
 
+            Stream stream;
+
             if (readSource != ReadSource.Disk && (readSource == ReadSource.Bundle || Manifest.StoreOriginalFiles))
             {
                 Logger.LogDebug("Reading file: {name} from the bundle", entryName);
 
-                using ZipArchive zip = GetZipArchive();
+                ZipArchive zip = GetZipArchive();
 
                 ZipArchiveEntry entry = zip.GetEntry(entryName) ?? throw new FileNotFoundException("Entry not found", entryName);
                 stream = entry.Open();
@@ -662,11 +664,6 @@ namespace SAPTeam.EasySign
 
                 string path = Path.GetFullPath(entryName, RootPath);
                 stream = File.OpenRead(path);
-            }
-
-            if (ReadOnly && stream.Length < _maxCacheSize)
-            {
-                _ = CacheEntry(entryName, ReadStream(stream));
             }
 
             return stream;
@@ -814,10 +811,6 @@ namespace SAPTeam.EasySign
         {
             Ensure.Any.IsNotNull(stream, nameof(stream));
 
-            if (stream.Length > int.MaxValue)
-            {
-                throw new OverflowException("Stream length is too big for buffering");
-            }
 
             byte[] result;
             if (stream is MemoryStream memoryStream)
