@@ -1,0 +1,14 @@
+{
+  "name": "Dotnet Multi-SDK Dev Container",
+  "build": {
+    "dockerfile": "../Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp"
+      ]
+    }
+  }
+  
+}
