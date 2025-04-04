@@ -1,7 +1,7 @@
 {
   "name": "Dotnet Multi-SDK Dev Container",
   "build": {
-    "dockerfile": "../Dockerfile"
+    "dockerfile": "../build/docker/Dockerfile"
   },
   "customizations": {
     "vscode": {
