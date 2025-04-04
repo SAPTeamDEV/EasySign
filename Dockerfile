@@ -1,6 +1,11 @@
 # Use the official devcontainer .NET 8 image
 FROM mcr.microsoft.com/vscode/devcontainers/dotnet:9.0
 
+LABEL org.opencontainers.image.source=https://github.com/SAPTeamDEV/EasySign
+LABEL org.opencontainers.image.description=".NET Development Container"
+LABEL org.opencontainers.image.licenses=MIT
+
+
 # Install additional apt packages
 RUN apt-get update && apt-get install -y \
     git \
