@@ -17,6 +17,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasySign.Cli", "src\EasySig
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasySign.CommandLine", "src\EasySign.CommandLine\EasySign.CommandLine.csproj", "{469CED26-0714-F94E-59D1-CAC8348159A0}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Doxygen", "Doxygen", "{D5057465-B5EA-4A68-8D85-03873CDCBB78}"
+	ProjectSection(SolutionItems) = preProject
+		Doxyfile = Doxyfile
+		build\DoxyHome.md = build\DoxyHome.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +49,7 @@ Global
 		{007900BB-36CE-7645-672E-74572EA2ADCB} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{06B3FED1-E973-10C5-B01D-20CA5926CDB5} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{469CED26-0714-F94E-59D1-CAC8348159A0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{D5057465-B5EA-4A68-8D85-03873CDCBB78} = {8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6BCA3873-BF41-4370-82BE-723E438DC241}

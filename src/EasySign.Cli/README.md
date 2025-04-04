@@ -8,6 +8,8 @@ Easy Sign CLI is a simple .NET tool for signing and verifying files. It supports
 - Sign bundles with X.509 certificates.
 - Verify file integrity and signatures within bundles.
 - Support for concurrent operations.
+- Ahead-of-time (AOT) compilation support.
+- Integrated logging support.
 
 ## Installation
 
@@ -29,12 +31,13 @@ Creates a new bundle or updates an existing one by adding files from the specifi
 
 
 ```
-esign add <directory> [-f <bundleFileName>]
+esign add <bundle> [--replace] [--continue]
 
 ```
 
-- `directory`: The working directory containing the eSign bundle and files to be added to the bundle.
-- `-f`: (Optional) The name of the bundle file. Default is `.eSign`.
+- `bundle`: The path or directory containing the bundle. If the bundle name is not specified, a default name will be used.
+- `--replace` or `-r`: (Optional) Replace existing entries.
+- `--continue` or `-c`: (Optional) Continue adding files if an error occurs.
 
 #### `sign`
 
@@ -42,12 +45,11 @@ Signs the bundle with a specified certificate.
 
 
 ```
-esign sign <directory> [-f <bundleFileName>] [--pfx <pfxFilePath>] [--pfx-password <pfxFilePassword>] [--no-password]
+esign sign <bundle> [--pfx <pfxFilePath>] [--pfx-password <pfxFilePassword>] [--no-password]
 
 ```
 
-- `directory`: The working directory containing the bundle to be signed.
-- `-f`: (Optional) The name of the bundle file. Default is `.eSign`.
+- `bundle`: The path or directory containing the bundle to be signed. If the bundle name is not specified, a default name will be used.
 - `--pfx`: (Optional) The path to the PFX file containing the certificate and private key.
 - `--pfx-password`: (Optional) The password for the PFX file.
 - `--no-password`: (Optional) Ignore the PFX file password prompt.
@@ -58,18 +60,17 @@ Verifies the file integrity and signatures of the bundle.
 
 
 ```
-esign verify <directory> [-f <bundleFileName>]
+esign verify <bundle>
 
 ```
 
-- `directory`: The working directory containing the bundle to be verified.
-- `-f`: (Optional) The name of the bundle file. Default is `.eSign`.
+- `bundle`: The path or directory containing the bundle to be verified. If the bundle name is not specified, a default name will be used.
 
 ## Examples
 
 ### Adding Files to a Bundle
 
-if there is no bundle file in the directory, a new bundle will be created. Otherwise, the files will be added to the existing bundle.
+If there is no bundle file in the directory, a new bundle will be created. Otherwise, the files will be added to the existing bundle.
 
 
 ```
