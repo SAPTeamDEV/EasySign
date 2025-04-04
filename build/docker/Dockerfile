@@ -2,7 +2,9 @@
 FROM mcr.microsoft.com/vscode/devcontainers/dotnet:9.0
 
 LABEL org.opencontainers.image.source https://github.com/SAPTeamDEV/EasySign
+LABEL org.opencontainers.image.title "EasyDev"
 LABEL org.opencontainers.image.description ".NET Development Container"
+LABEL org.opencontainers.image.vendor "SAPTeamDEV"
 LABEL org.opencontainers.image.licenses MIT
 
 # Install additional apt packages
