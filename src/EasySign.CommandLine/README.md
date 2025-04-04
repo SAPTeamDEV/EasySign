@@ -1,5 +1,10 @@
 # EasySign Command Line Helper
 
+[![Gawe CI](https://github.com/SAPTeamDEV/EasySign/actions/workflows/main.yml/badge.svg?event=push)](https://github.com/SAPTeamDEV/EasySign/actions/workflows/main.yml)
+[![CodeQL](https://github.com/SAPTeamDEV/EasySign/actions/workflows/codeql.yml/badge.svg?event=push)](https://github.com/SAPTeamDEV/EasySign/actions/workflows/codeql.yml)
+[![NuGet Package Version](https://img.shields.io/nuget/v/SAPTeam.EasySign.CommandLine)](https://www.nuget.org/packages/SAPTeam.EasySign.CommandLine)
+[![NuGet Total Downloads](https://img.shields.io/nuget/dt/SAPTeam.EasySign.CommandLine)](https://www.nuget.org/packages/SAPTeam.EasySign.CommandLine)
+
 Easy Sign Command Line Helper is a library that provides an API for creating console applications using the EasySign library. It supports multiple .NET targets, including .NET 6, .NET 8, and .NET 9.
 
 ## Features

@@ -1,5 +1,10 @@
 # Easy Sign
 
+[![Gawe CI](https://github.com/SAPTeamDEV/EasySign/actions/workflows/main.yml/badge.svg?event=push)](https://github.com/SAPTeamDEV/EasySign/actions/workflows/main.yml)
+[![CodeQL](https://github.com/SAPTeamDEV/EasySign/actions/workflows/codeql.yml/badge.svg?event=push)](https://github.com/SAPTeamDEV/EasySign/actions/workflows/codeql.yml)
+[![NuGet Package Version](https://img.shields.io/nuget/v/SAPTeam.EasySign)](https://www.nuget.org/packages/SAPTeam.EasySign)
+[![NuGet Total Downloads](https://img.shields.io/nuget/dt/SAPTeam.EasySign)](https://www.nuget.org/packages/SAPTeam.EasySign)
+
 Easy Sign is a simple C# library for signing and verifying files. It supports multiple .NET targets, including .NET Standard 2.1, .NET 6, and .NET 8.
 
 ## Features
