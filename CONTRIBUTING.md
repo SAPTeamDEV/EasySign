@@ -10,12 +10,13 @@ Thank you for considering contributing to EasySign! We welcome contributions fro
   - [Suggesting Features](#suggesting-features)
   - [Submitting Pull Requests](#submitting-pull-requests)
 - [Development Setup](#development-setup)
+- [Native AOT Compilation](#native-aot-compilation)
 - [Style Guide](#style-guide)
 - [License](#license)
 
 ## Code of Conduct
 
-Please read and follow our [Code of Conduct](CODE-OF-CONDUCT.md) to ensure a welcoming and inclusive environment for everyone.
+Please read and follow our [Code of Conduct](https://dotnetfoundation.org/code-of-conduct) to ensure a welcoming and inclusive environment for everyone.
 
 ## How to Contribute
 

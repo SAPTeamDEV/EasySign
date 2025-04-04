@@ -125,10 +125,10 @@ If you discover any security vulnerabilities, please report them by following ou
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing](CONTRIBUTING.md) guide for more information on how to get started.
+We welcome contributions! Please see our [Contributing guide](CONTRIBUTING.md) for more information on how to get started.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE.md](LICENSE) file for more details.
+This project is licensed under the MIT License. See the [License](LICENSE.md) section for more details.
 
 Thank you for using EasySign!
