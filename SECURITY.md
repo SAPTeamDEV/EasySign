@@ -1,4 +1,4 @@
-# Security
+# Security Vulnerability Reportiing Guideline
 
 The maintainers of this project take security seriously, and the reporting of potential security issues. If you believe you have found a security vulnerability in code from this repository that meets [Microsoft's definition of a security vulnerability](https://docs.microsoft.com/previous-versions/tn-archive/cc751383(v=technet.10)), please report it to us as described below.
 

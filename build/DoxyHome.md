@@ -121,7 +121,7 @@ esign verify /path/to/dir
 
 ## Security Vulnerability Reporting
 
-If you discover any security vulnerabilities, please report them by following our guidelines [Security Guidelines](SECURITY.md).
+If you discover any security vulnerabilities, please report them by following our [Security Guidelines](SECURITY.md).
 
 ## Contributing
 
