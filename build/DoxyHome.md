@@ -2,15 +2,17 @@
 
 Welcome to the EasySign project! EasySign is a comprehensive suite of tools and libraries designed to simplify the process of signing and verifying files using X.509 certificates. Our project supports multiple .NET targets, including .NET Standard 2.1, .NET 6, .NET 8, and .NET 9, ensuring compatibility across a wide range of applications.
 
+[TOC]
+
 ## Overview
 
 EasySign consists of three main components:
 
 | Component | Description | Latest Version | Total Downloads |
 | :-------- | :---------- | :------------: | :-------------: |
-| **EasySign Library** | A C# library for signing and verifying files. | [![EasySign Library Version](https://img.shields.io/nuget/v/SAPTeam.EasySign)](https://www.nuget.org/packages/SAPTeam.EasySign) | [![EasySign Library Downloads](https://img.shields.io/nuget/dt/SAPTeam.EasySign)](https://www.nuget.org/packages/SAPTeam.EasySign) |
-| **EasySign Command-Line Helper** | A helper library for creating console applications using EasySign. | [![EasySign Command-Line Helper Version](https://img.shields.io/nuget/v/SAPTeam.EasySign.CommandLine)](https://www.nuget.org/packages/SAPTeam.EasySign.CommandLine) | [![EasySign Command-Line Helper Downloads](https://img.shields.io/nuget/dt/SAPTeam.EasySign.CommandLine)](https://www.nuget.org/packages/SAPTeam.EasySign.CommandLine) |
-| **EasySign CLI** | A command-line interface tool for signing and verifying files. | [![EasySign CLI Version](https://img.shields.io/nuget/v/SAPTeam.EasySign.Tool)](https://www.nuget.org/packages/SAPTeam.EasySign.Tool) | [![EasySign CLI Downloads](https://img.shields.io/nuget/dt/SAPTeam.EasySign.Tool)](https://www.nuget.org/packages/SAPTeam.EasySign.Tool) |
+| **EasySign Library** | A C# library for signing and verifying files | [![EasySign Library Version](https://img.shields.io/nuget/v/SAPTeam.EasySign)](https://www.nuget.org/packages/SAPTeam.EasySign) | [![EasySign Library Downloads](https://img.shields.io/nuget/dt/SAPTeam.EasySign)](https://www.nuget.org/packages/SAPTeam.EasySign) |
+| **EasySign Command-Line Helper** | A helper library for creating console applications using EasySign | [![EasySign Command-Line Helper Version](https://img.shields.io/nuget/v/SAPTeam.EasySign.CommandLine)](https://www.nuget.org/packages/SAPTeam.EasySign.CommandLine) | [![EasySign Command-Line Helper Downloads](https://img.shields.io/nuget/dt/SAPTeam.EasySign.CommandLine)](https://www.nuget.org/packages/SAPTeam.EasySign.CommandLine) |
+| **EasySign CLI** | A command-line interface tool for signing and verifying files | [![EasySign CLI Version](https://img.shields.io/nuget/v/SAPTeam.EasySign.Tool)](https://www.nuget.org/packages/SAPTeam.EasySign.Tool) | [![EasySign CLI Downloads](https://img.shields.io/nuget/dt/SAPTeam.EasySign.Tool)](https://www.nuget.org/packages/SAPTeam.EasySign.Tool) |
 
 ## Features
 
@@ -121,7 +123,7 @@ esign verify /path/to/dir
 
 ```
 
-## Security Vulnerability Reporting
+## Security Reporting
 
 If you discover any security vulnerabilities, please report them by following our [Security Guidelines](SECURITY.md).
 

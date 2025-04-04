@@ -76,6 +76,10 @@ bool isFile2Valid = bundle.VerifyFile("file2.txt");
 
 ```
 
+## Documentation
+
+A full API Documentation is available at [EasySign Project Site](https://sapteamdev.github.io/EasySign).
+
 ## Command Line Interface
 
 Easy Sign also provides a command line interface (CLI) for signing and verifying files. To install the CLI tool, use the following command:
@@ -89,6 +93,14 @@ dotnet tool install -g SAPTeam.EasySign.Tool
 For more informations, see the [CLI Readme](https://github.com/SAPTeamDEV/EasySign/blob/master/src/EasySign.Cli/README.md).
 
 
+## Security Reporting
+
+If you discover any security vulnerabilities, please report them by following our [Security Guidelines](https://github.com/SAPTeamDEV/EasySign/blob/master/SECURITY.md).
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing guide](https://github.com/SAPTeamDEV/EasySign/blob/master/CONTRIBUTING.md) for more information on how to get started.
+
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](https://github.com/SAPTeamDEV/EasySign/blob/master/LICENSE.md).
