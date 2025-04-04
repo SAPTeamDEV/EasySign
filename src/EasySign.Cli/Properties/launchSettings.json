@@ -5,7 +5,7 @@
     },
     "Add": {
       "commandName": "Project",
-      "commandLineArgs": "add ."
+      "commandLineArgs": "add . -c -r"
     },
     "Verify": {
       "commandName": "Project",
