@@ -234,7 +234,7 @@ namespace SAPTeam.EasySign
             {
                 Logger.LogDebug("Loading bundle from memory with {Size} bytes", _rawZipContents.Length);
 
-                MemoryStream ms = new MemoryStream(_rawZipContents);
+                MemoryStream ms = new MemoryStream(_rawZipContents, writable: false);
                 return new ZipArchive(ms, mode);
             }
             else
