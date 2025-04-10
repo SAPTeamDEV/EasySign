@@ -7,12 +7,14 @@ namespace SAPTeam.EasySign.Cli
 {
     internal class Program
     {
+        public static string AppDirectory => AppDomain.CurrentDomain.BaseDirectory;
+
         private static int Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
                 .Enrich.WithThreadId()
                 .WriteTo.File(
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs/log-.txt"),
+                    Path.Combine(AppDirectory, "logs/log-.txt"),
                     rollingInterval: RollingInterval.Day,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Context}({ThreadId}) - {Message} {NewLine}{Exception}"
                 )
@@ -28,7 +30,7 @@ namespace SAPTeam.EasySign.Cli
             Microsoft.Extensions.Logging.ILogger commandProviderLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "CommandProvider"))
                 .CreateLogger("CommandProvider");
 
-            RootCommand root = new BundleCommandProvider(commandProviderLogger, bundleLogger).GetRootCommand();
+            RootCommand root = new BundleCommandProvider(AppDirectory, commandProviderLogger, bundleLogger).GetRootCommand();
             int exitCode = root.Invoke(args);
 
             appLogger.Information("Shutting down EasySign CLI at {DateTime} with exit code {ExitCode}", DateTime.Now, exitCode);

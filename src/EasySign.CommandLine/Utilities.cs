@@ -8,7 +8,7 @@ namespace SAPTeam.EasySign.CommandLine
     /// <summary>
     /// Provides utility methods for various operations.
     /// </summary>
-    public static class Utilities
+    internal static class Utilities
     {
         /// <summary>
         /// Runs the specified action within a status context, provides fancy progress showing.
@@ -65,63 +65,6 @@ namespace SAPTeam.EasySign.CommandLine
                     folders.Enqueue(str);
                 }
             }
-        }
-
-        /// <summary>
-        /// Retrieves a collection of certificates from a PFX file or the current user's certificate store.
-        /// </summary>
-        /// <param name="pfxFilePath">The path to the PFX file.</param>
-        /// <param name="pfxFilePassword">The password for the PFX file.</param>
-        /// <param name="pfxNoPasswordPrompt">Indicates whether to prompt for a password if not provided.</param>
-        /// <returns>A collection of certificates.</returns>
-        public static X509Certificate2Collection GetCertificates(string pfxFilePath, string pfxFilePassword, bool pfxNoPasswordPrompt)
-        {
-            X509Certificate2Collection collection = [];
-
-            if (!string.IsNullOrEmpty(pfxFilePath))
-            {
-                string pfpass = !string.IsNullOrEmpty(pfxFilePassword) ? pfxFilePassword : !pfxNoPasswordPrompt ? SecurePrompt("Enter PFX File password (if needed): ") : "";
-
-#if NET9_0_OR_GREATER
-                X509Certificate2Collection tempCollection = X509CertificateLoader.LoadPkcs12CollectionFromFile(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
-#else
-                X509Certificate2Collection tempCollection = [];
-                tempCollection.Import(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
-#endif
-
-                IEnumerable<X509Certificate2> cond = tempCollection.Where(x => x.HasPrivateKey);
-                if (cond.Any())
-                {
-                    collection.AddRange(cond.ToArray());
-                }
-                else
-                {
-                    collection.AddRange(tempCollection);
-                }
-            }
-            else
-            {
-                X509Store store = new X509Store("MY", StoreLocation.CurrentUser);
-                store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
-
-                Dictionary<string, X509Certificate2> mapping = [];
-                foreach (X509Certificate2 cert in store.Certificates)
-                {
-                    mapping[$"{cert.GetNameInfo(X509NameType.SimpleName, false)},{cert.GetNameInfo(X509NameType.SimpleName, true)},{cert.Thumbprint}"] = cert;
-                }
-
-                List<string> selection = AnsiConsole.Prompt(
-                    new MultiSelectionPrompt<string>()
-                        .PageSize(10)
-                        .Title("Select Signing Certificates")
-                        .MoreChoicesText("[grey](Move up and down to see more certificates)[/]")
-                        .InstructionsText("[grey](Press [blue]<space>[/] to toggle a certificate, [green]<enter>[/] to accept)[/]")
-                        .AddChoices(mapping.Keys));
-
-                collection.AddRange(selection.Select(x => mapping[x]).ToArray());
-            }
-
-            return collection;
         }
 
         /// <summary>

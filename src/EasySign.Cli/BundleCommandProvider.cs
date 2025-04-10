@@ -10,9 +10,8 @@ namespace SAPTeam.EasySign.Cli
     {
         private readonly ILogger _bundleLogger;
 
-        public BundleCommandProvider(ILogger logger, ILogger bundleLogger)
+        public BundleCommandProvider(string appDirectory, ILogger logger, ILogger bundleLogger) : base(appDirectory, logger)
         {
-            Logger = logger;
             _bundleLogger = bundleLogger;
         }
 
@@ -28,7 +27,8 @@ namespace SAPTeam.EasySign.Cli
             {
                 Add,
                 Sign,
-                Verify
+                Verify,
+                SelfSign,
             };
 
             return root;

@@ -398,6 +398,29 @@ namespace SAPTeam.EasySign.CommandLine
 
             List<bool> verifyResults = [];
 
+            X509Certificate2? rootCA;
+            if ((rootCA = GetSelfSigningRootCA()) != null)
+            {
+                Logger.LogDebug("Verifying certificate {cert} with self-signing root CA", certificate);
+
+                X509ChainPolicy policy = new X509ChainPolicy();
+                policy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                policy.CustomTrustStore.Add(rootCA);
+                policy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
+                policy.RevocationMode = X509RevocationMode.NoCheck;
+
+                bool selfSignVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] selfSignStatuses, policy: policy);
+                verifyResults.Add(selfSignVerification);
+
+                Logger.LogInformation("Certificate verification with self-signing root CA for {cert}: {result}", certificate, selfSignVerification);
+                
+                if (!selfSignVerification)
+                {
+                    AnsiConsole.MarkupLine($"[{Color.Green}] Certificate Verification with Self-Signing Root CA Successful[/]");
+                    return true;
+                }
+            }
+
             Logger.LogDebug("Verifying certificate {cert} with default verification policy", certificate);
             bool defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
             verifyResults.Add(defaultVerification);
