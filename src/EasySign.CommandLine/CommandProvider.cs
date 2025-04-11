@@ -125,6 +125,28 @@ namespace SAPTeam.EasySign.CommandLine
         }
 
         /// <summary>
+        /// Gets the command for Showing bundle information
+        /// </summary>
+        public Command Info
+        {
+            get
+            {
+                Command command = new Command("info", "Show bundle information")
+                {
+                    BundlePath,
+                };
+
+                command.SetHandler((bundlePath) =>
+                {
+                    InitializeBundle(bundlePath);
+                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunInfo(ctx));
+                }, BundlePath);
+
+                return command;
+            }
+        }
+
+        /// <summary>
         /// Gets the command for signing bundle with one or more certificate.
         /// </summary>
         public Command Sign
@@ -252,9 +274,9 @@ namespace SAPTeam.EasySign.CommandLine
             get
             {
                 Command command = new Command("verify", "Verify bundle")
-                    {
-                        BundlePath,
-                    };
+                {
+                    BundlePath,
+                };
 
                 command.SetHandler((bundlePath) =>
                 {

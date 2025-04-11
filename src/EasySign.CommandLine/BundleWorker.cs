@@ -201,6 +201,67 @@ namespace SAPTeam.EasySign.CommandLine
             }
         }
 
+        protected virtual void RunInfo(StatusContext statusContext)
+        {
+            Logger.LogInformation("Running info command");
+
+            if (Bundle == null)
+            {
+                throw new ApplicationException("Bundle is not initialized");
+            }
+
+            Logger.LogDebug("Loading bundle");
+            statusContext.Status("[yellow]Loading Bundle[/]");
+            if (!LoadBundle()) return;
+
+            Grid bundleGrid = new Grid();
+            bundleGrid.AddColumn(new GridColumn().NoWrap());
+            bundleGrid.AddColumn(new GridColumn().PadLeft(2));
+
+            bundleGrid.AddRow("Bundle Info:");
+            bundleGrid.AddRow("   Full Path:", Bundle.BundlePath);
+            bundleGrid.AddRow("   Updated By:", Bundle.Manifest.UpdatedBy ?? "N/A");
+            bundleGrid.AddRow("   Protected Entry Names:", Bundle.Manifest.ProtectedEntryNames.Count.ToString());
+            bundleGrid.AddRow("   Store Files In Bundle:", Bundle.Manifest.StoreOriginalFiles ? "Yes" : "No");
+            bundleGrid.AddRow("   Manifest Entries:", Bundle.Manifest.Entries.Count.ToString());
+            bundleGrid.AddRow("   Manifest Is Signed:", Bundle.Signatures.Entries.Count > 0 ? "Yes" : "No");
+            bundleGrid.AddRow("   Signature Count:", Bundle.Signatures.Entries.Count.ToString());
+
+            AnsiConsole.Write(bundleGrid);
+            AnsiConsole.WriteLine();
+
+            Grid protectedEntries = new Grid();
+            protectedEntries.AddColumn(new GridColumn().NoWrap());
+
+            protectedEntries.AddRow("Protected Entry Names:");
+
+            foreach (var entryName in Bundle.Manifest.ProtectedEntryNames)
+            {
+                protectedEntries.AddRow($"   {entryName}");
+            }
+
+            AnsiConsole.Write(protectedEntries);
+            AnsiConsole.WriteLine();
+
+            Grid manifestEntries = new Grid();
+            manifestEntries.AddColumn(new GridColumn());
+            manifestEntries.AddColumn(new GridColumn().PadLeft(2).Width(18));
+
+            manifestEntries.AddRow("Manifest Entries:");
+            manifestEntries.AddRow("   Entry Name", "Hash");
+
+            foreach (var entry in Bundle.Manifest.Entries)
+            {
+                var entryHash = BitConverter.ToString(entry.Value).Replace("-", "");
+                manifestEntries.AddRow($"   {entry.Key}", $"{entryHash[0..8]}..{entryHash.Substring(entryHash.Length - 8)}");
+            }
+
+            AnsiConsole.Write(manifestEntries);
+            AnsiConsole.WriteLine();
+
+            CertificateUtilities.DisplayCertificate(Bundle.Signatures.Entries.Keys.Select(Bundle.GetCertificate).ToArray());
+        }
+
         /// <summary>
         /// Runs the sign command.
         /// </summary>
@@ -236,19 +297,7 @@ namespace SAPTeam.EasySign.CommandLine
                 Logger.LogDebug("Loading certificate information for {Cert}", cert);
                 statusContext.Status("[yellow]Loading certificate informations[/]");
 
-                Grid grid = new Grid();
-                grid.AddColumn(new GridColumn().NoWrap());
-                grid.AddColumn(new GridColumn().PadLeft(2));
-                grid.AddRow("Certificate Info:");
-                grid.AddRow("  Common Name", cert.GetNameInfo(X509NameType.SimpleName, false));
-                grid.AddRow("  Issuer Name", cert.GetNameInfo(X509NameType.SimpleName, true));
-                grid.AddRow("  Holder Email", cert.GetNameInfo(X509NameType.EmailName, false));
-                grid.AddRow("  Valid From", cert.GetEffectiveDateString());
-                grid.AddRow("  Valid To", cert.GetExpirationDateString());
-                grid.AddRow("  Thumbprint", cert.Thumbprint);
-
-                AnsiConsole.Write(grid);
-                AnsiConsole.WriteLine();
+                CertificateUtilities.DisplayCertificate(cert);
 
                 Logger.LogDebug("Verifying certificate {cert}", cert);
                 statusContext.Status("[yellow]Verifying Certificate[/]");

@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
+using Spectre.Console;
 
 namespace SAPTeam.EasySign.CommandLine
 {
@@ -14,6 +15,49 @@ namespace SAPTeam.EasySign.CommandLine
     /// </summary>
     public static class CertificateUtilities
     {
+        /// <summary>
+        /// Prints the details of given X.509 certificates to the console.
+        /// </summary>
+        /// <param name="certificates">
+        /// The X.509 certificates to display.
+        /// </param>
+        public static void DisplayCertificate(params X509Certificate2[] certificates)
+        {
+            Grid grid = new Grid();
+            grid.AddColumn(new GridColumn().NoWrap());
+            grid.AddColumn(new GridColumn().PadLeft(2));
+
+            int index = 1;
+            foreach (var certificate in certificates)
+            {
+                if (index > 1)
+                {
+                    grid.AddRow();
+                }
+
+                if (certificates.Length > 1)
+                {
+                    grid.AddRow($"Certificate #{index}:");
+                }
+                else
+                {
+                    grid.AddRow("Certificate Info:");
+                }
+                
+                grid.AddRow("   Common Name", certificate.GetNameInfo(X509NameType.SimpleName, false));
+                grid.AddRow("   Issuer Name", certificate.GetNameInfo(X509NameType.SimpleName, true));
+                grid.AddRow("   Holder Email", certificate.GetNameInfo(X509NameType.EmailName, false));
+                grid.AddRow("   Valid From", certificate.GetEffectiveDateString());
+                grid.AddRow("   Valid To", certificate.GetExpirationDateString());
+                grid.AddRow("   Thumbprint", certificate.Thumbprint);
+
+                index++;
+            }
+
+            AnsiConsole.Write(grid);
+            AnsiConsole.WriteLine();
+        }
+
         /// <summary>
         /// Prompts the user for certificate subject information and generates a standardized subject name.
         /// </summary>

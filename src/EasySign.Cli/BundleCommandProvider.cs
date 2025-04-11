@@ -26,6 +26,7 @@ namespace SAPTeam.EasySign.Cli
             RootCommand root = new RootCommand("Easy Digital Signing Tool")
             {
                 Add,
+                Info,
                 Sign,
                 Verify,
                 SelfSign,
