@@ -24,12 +24,41 @@ namespace SAPTeam.EasySign.CommandLine
         }
 
         /// <summary>
+        /// Checks if a file is within a specified root path.
+        /// </summary>
+        /// <param name="filePath">
+        /// The file path to check.
+        /// </param>
+        /// <param name="rootPath">
+        /// The root path to check against.
+        /// </param>
+        /// <returns>
+        /// True if the file is within the root path; otherwise, false.
+        /// </returns>
+        public static bool IsFileWithinRoot(string filePath, string rootPath)
+        {
+            // Get the full absolute paths
+            string absoluteFilePath = Path.GetFullPath(filePath);
+            string absoluteRootPath = Path.GetFullPath(rootPath);
+
+            // Ensure the root path ends with a directory separator
+            if (!absoluteRootPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                absoluteRootPath += Path.DirectorySeparatorChar;
+            }
+
+            // Check if the file path starts with the root path (using OrdinalIgnoreCase for case-insensitive comparison on Windows)
+            return absoluteFilePath.StartsWith(absoluteRootPath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Safely enumerates files in the specified path that match the search pattern.
         /// </summary>
         /// <param name="path">The path to search for files.</param>
         /// <param name="searchPattern">The search pattern to match files.</param>
+        /// <param name="recursive">Whether to search recursively in subdirectories.</param>
         /// <returns>An enumerable collection of file paths.</returns>
-        public static IEnumerable<string> SafeEnumerateFiles(string path, string searchPattern)
+        public static IEnumerable<string> SafeEnumerateFiles(string path, string searchPattern, bool recursive = true)
         {
             ConcurrentQueue<string> folders = new();
             folders.Enqueue(path);
@@ -55,14 +84,17 @@ namespace SAPTeam.EasySign.CommandLine
 
                 try
                 {
-                    subDirs = Directory.GetDirectories(currentDir);
+                    if (recursive)
+                    {
+                        subDirs = Directory.GetDirectories(currentDir);
+                    }
                 }
                 catch (UnauthorizedAccessException) { continue; }
                 catch (DirectoryNotFoundException) { continue; }
 
-                foreach (string str in subDirs)
+                foreach (string dir in subDirs)
                 {
-                    folders.Enqueue(str);
+                    folders.Enqueue(dir);
                 }
             }
         }

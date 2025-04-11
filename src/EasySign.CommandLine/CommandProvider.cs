@@ -79,8 +79,28 @@ namespace SAPTeam.EasySign.CommandLine
         {
             get
             {
+                Argument<string[]> filesArg = new Argument<string[]>("files", description: "Files to add to the bundle, Must be inside the bundle root path\n" +
+                    "if not specified, all files in the bundle root path will be added", parse: x =>
+                    {
+                        List<string> result = [];
+                        foreach (var file in x.Tokens.Select(t => t.Value))
+                        {
+                            if (string.IsNullOrEmpty(file)) continue;
+
+                            result.Add(Path.GetFullPath(file));
+                        }
+
+                        return result.ToArray();
+                    })
+                {
+                    Arity = ArgumentArity.ZeroOrMore,
+                };
+
                 Option<bool> replaceOpt = new Option<bool>("--replace", "Replace existing entries");
                 replaceOpt.AddAlias("-r");
+
+                Option<bool> recursiveOpt = new Option<bool>("--recursive", "Add all files within the bundle root path recursively");
+                recursiveOpt.AddAlias("-R");
 
                 Option<bool> continueOpt = new Option<bool>("--continue", "Continue adding files if an error occurs");
                 continueOpt.AddAlias("-c");
@@ -88,15 +108,17 @@ namespace SAPTeam.EasySign.CommandLine
                 Command command = new Command("add", "Create new bundle or update an existing one")
                 {
                     BundlePath,
+                    filesArg,
                     replaceOpt,
+                    recursiveOpt,
                     continueOpt,
                 };
 
-                command.SetHandler((bundlePath, replace, continueOnError) =>
+                command.SetHandler((bundlePath, files, replace, recursive, continueOnError) =>
                 {
                     InitializeBundle(bundlePath);
-                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunAdd(ctx, replace, continueOnError));
-                }, BundlePath, replaceOpt, continueOpt);
+                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunAdd(ctx, files, replace, recursive, continueOnError));
+                }, BundlePath, filesArg, replaceOpt, recursiveOpt, continueOpt);
 
                 return command;
             }

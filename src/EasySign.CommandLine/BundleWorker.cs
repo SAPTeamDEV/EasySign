@@ -60,13 +60,19 @@ namespace SAPTeam.EasySign.CommandLine
         /// <param name="statusContext">
         /// The status context for interacting with <see cref="AnsiConsole.Status"/>.
         /// </param>
+        /// <param name="files">
+        /// The files to add to the bundle.
+        /// </param>
         /// <param name="replace">
         /// A value indicating whether to replace existing entries.
+        /// </param>
+        /// <param name="recursive">
+        /// A value indicating whether to add files recursively.
         /// </param>
         /// <param name="continueOnError">
         /// A value indicating whether to continue adding files if an error occurs.
         /// </param>
-        protected virtual void RunAdd(StatusContext statusContext, bool replace, bool continueOnError)
+        protected virtual void RunAdd(StatusContext statusContext, string[] files, bool replace, bool recursive, bool continueOnError)
         {
             Logger.LogInformation("Running add command");
 
@@ -85,13 +91,16 @@ namespace SAPTeam.EasySign.CommandLine
 
             statusContext.Status("[yellow]Adding Files[/]");
 
-            Logger.LogDebug("Discovering files in the directory: {RootPath}", Bundle.RootPath);
-            string[] foundFiles = Utilities.SafeEnumerateFiles(Bundle.RootPath, "*").ToArray();
-            Logger.LogInformation("Discovered {FileCount} files", foundFiles.Count());
+            if (files.Length == 0)
+            {
+                Logger.LogDebug("Discovering files in the directory: {RootPath}", Bundle.RootPath);
+                files = Utilities.SafeEnumerateFiles(Bundle.RootPath, "*", recursive).ToArray();
+                Logger.LogInformation("Discovered {FileCount} files", files.Length);
+            }
 
             Logger.LogInformation("Starting file adder multi-thread task");
             bool errorOccurred = false;
-            _ = Parallel.ForEach(foundFiles, (file, state) =>
+            _ = Parallel.ForEach(files, (file, state) =>
             {
                 if (file == Bundle.BundlePath) return;
                 string entryName = Manifest.GetNormalizedEntryName(Path.GetRelativePath(Bundle.RootPath, file));
@@ -100,12 +109,19 @@ namespace SAPTeam.EasySign.CommandLine
 
                 try
                 {
+                    if (!Utilities.IsFileWithinRoot(file, Bundle.RootPath))
+                    {
+                        Logger.LogWarning("File {file} is outside the bundle root path", file);
+                        AnsiConsole.MarkupLine($"[{Color.Yellow}]Ignored:[/] File {file} is outside the bundle root path");
+                        return;
+                    }
+
                     if (Bundle.Manifest.Entries.ContainsKey(entryName))
                     {
                         if (!replace)
                         {
                             Logger.LogWarning("Entry already exists: {EntryName}", entryName);
-                            AnsiConsole.MarkupLine($"[{Color.Orange1}]Exists:[/] {entryName}");
+                            AnsiConsole.MarkupLine($"[{Color.Yellow}]Exists:[/] {entryName}");
                             return;
                         }
 
