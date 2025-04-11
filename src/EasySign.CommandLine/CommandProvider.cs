@@ -345,7 +345,12 @@ namespace SAPTeam.EasySign.CommandLine
                     }
                     else
                     {
-                        subject = CertificateUtilities.GenerateSubjectName(commonName, organization, organizationalUnit, locality, state, country);
+                        subject = new CertificateSubject(commonName: commonName,
+                                                         organization: organization,
+                                                         organizationalUnit: organizationalUnit,
+                                                         locality: locality,
+                                                         state: state,
+                                                         country: country).ToString();
                     }
 
                     var rootCA = CertificateUtilities.CreateSelfSignedCACertificate(subject);

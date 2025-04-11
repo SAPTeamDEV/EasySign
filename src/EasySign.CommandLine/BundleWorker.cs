@@ -201,6 +201,12 @@ namespace SAPTeam.EasySign.CommandLine
             }
         }
 
+        /// <summary>
+        /// Runs the info command.
+        /// </summary>
+        /// <param name="statusContext">
+        /// The status context for interacting with <see cref="AnsiConsole.Status"/>.
+        /// </param>
         protected virtual void RunInfo(StatusContext statusContext)
         {
             Logger.LogInformation("Running info command");

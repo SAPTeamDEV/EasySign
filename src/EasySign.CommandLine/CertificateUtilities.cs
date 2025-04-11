@@ -31,6 +31,8 @@ namespace SAPTeam.EasySign.CommandLine
             int index = 1;
             foreach (var certificate in certificates)
             {
+                CertificateSubject subject = new CertificateSubject(certificate.Subject);
+
                 if (index > 1)
                 {
                     grid.AddRow();
@@ -54,9 +56,35 @@ namespace SAPTeam.EasySign.CommandLine
                     grid.AddRow("   Holder Email", holderEmail);
                 }
 
+                if (!string.IsNullOrWhiteSpace(subject.Organization))
+                {
+                    grid.AddRow("   Organization", subject.Organization);
+                }
+
+                if (!string.IsNullOrWhiteSpace(subject.OrganizationalUnit))
+                {
+                    grid.AddRow("   Organizational Unit", subject.OrganizationalUnit);
+                }
+
+                if (!string.IsNullOrWhiteSpace(subject.Locality))
+                {
+                    grid.AddRow("   Locality", subject.Locality);
+                }
+
+                if (!string.IsNullOrWhiteSpace(subject.State))
+                {
+                    grid.AddRow("   State", subject.State);
+                }
+
+                if (!string.IsNullOrWhiteSpace(subject.Country))
+                {
+                    grid.AddRow("   Country", subject.Country);
+                }
+
                 grid.AddRow("   Valid From", certificate.GetEffectiveDateString());
                 grid.AddRow("   Valid To", certificate.GetExpirationDateString());
                 grid.AddRow("   Thumbprint", Regex.Replace(certificate.Thumbprint, "(.{2})(?!$)", "$1:"));
+                grid.AddRow("   Serial Number", Regex.Replace(certificate.SerialNumber, "(.{2})(?!$)", "$1:"));
 
                 index++;
             }
@@ -90,64 +118,18 @@ namespace SAPTeam.EasySign.CommandLine
             Console.Write("Locality (L) (optional): ");
             string? locality = Console.ReadLine();
 
-            Console.Write("State or Province (S) (optional): ");
+            Console.Write("State or Province (ST) (optional): ");
             string? state = Console.ReadLine();
 
             Console.Write("Country (C) (optional): ");
             string? country = Console.ReadLine();
 
-            return GenerateSubjectName(commonName, organization, organizationalUnit, locality, state, country);
-        }
-
-        /// <summary>
-        /// Generates a standardized certificate subject name.
-        /// Only non-empty components are included.
-        /// </summary>
-        /// <param name="commonName">Common Name (CN) - required.</param>
-        /// <param name="organization">Organization (O) - optional.</param>
-        /// <param name="organizationalUnit">Organizational Unit (OU) - optional.</param>
-        /// <param name="locality">Locality (L) - optional.</param>
-        /// <param name="stateOrProvince">State or Province (S) - optional.</param>
-        /// <param name="country">Country (C) - optional.</param>
-        /// <returns>The formatted certificate subject string.</returns>
-        public static string GenerateSubjectName(string commonName, string? organization, string? organizationalUnit, string? locality, string? stateOrProvince, string? country)
-        {
-            Ensure.String.IsNotNullOrEmpty(commonName, nameof(commonName));
-
-            var components = new List<string>
-            {
-                // Required fields
-                $"CN={commonName}"
-            };
-
-            // Optional fields: add only if they are not null or empty.
-            if (!string.IsNullOrWhiteSpace(organization))
-            {
-                components.Add($"O={organization}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(organizationalUnit))
-            {
-                components.Add($"OU={organizationalUnit}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(locality))
-            {
-                components.Add($"L={locality}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(stateOrProvince))
-            {
-                components.Add($"S={stateOrProvince}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(country))
-            {
-                components.Add($"C={country}");
-            }
-
-            // Combine with comma separators.
-            return string.Join(", ", components);
+            return new CertificateSubject(commonName: commonName,
+                                          organization: organization,
+                                          organizationalUnit: organizationalUnit,
+                                          locality: locality,
+                                          state: state,
+                                          country: country).ToString();
         }
 
         /// <summary>
