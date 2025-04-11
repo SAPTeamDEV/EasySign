@@ -94,15 +94,33 @@ namespace SAPTeam.EasySign.CommandLine
             if (files.Length == 0)
             {
                 Logger.LogDebug("Discovering files in the directory: {RootPath}", Bundle.RootPath);
-                files = Utilities.SafeEnumerateFiles(Bundle.RootPath, "*", recursive).ToArray();
-                Logger.LogInformation("Discovered {FileCount} files", files.Length);
+
+                if ((files = Utilities.SafeEnumerateFiles(Bundle.RootPath, "*", recursive).ToArray()).Length == 0)
+                {
+                    Logger.LogWarning("No files found in the directory: {RootPath}", Bundle.RootPath);
+                    AnsiConsole.MarkupLine($"[{Color.Red}]No files found in the directory: {Bundle.RootPath}[/]");
+                    return;
+                }
+                else
+                {
+                    Logger.LogInformation("Discovered {FileCount} files in the directory: {RootPath}", files.Length, Bundle.RootPath);
+                    AnsiConsole.MarkupLine($"[{Color.Green}]Discovered {files.Length} files in the directory: {Bundle.RootPath}[/]");
+                }
             }
 
             Logger.LogInformation("Starting file adder multi-thread task");
             bool errorOccurred = false;
+            bool bundleUpdated = false;
+
             _ = Parallel.ForEach(files, (file, state) =>
             {
-                if (file == Bundle.BundlePath) return;
+                if (file == Bundle.BundlePath)
+                {
+                    Logger.LogWarning("File {file} is the bundle file itself", file);
+                    AnsiConsole.MarkupLine($"[{Color.Yellow}]Ignored:[/] File {file} is the bundle file itself");
+                    return;
+                }
+
                 string entryName = Manifest.GetNormalizedEntryName(Path.GetRelativePath(Bundle.RootPath, file));
 
                 Logger.LogInformation("Processing file: {EntryName}", entryName);
@@ -129,6 +147,7 @@ namespace SAPTeam.EasySign.CommandLine
 
                         Bundle.DeleteEntry(entryName);
                         Bundle.AddEntry(file);
+                        bundleUpdated = true;
 
                         Logger.LogInformation("Entry: {EntryName} Replaced", entryName);
                         AnsiConsole.MarkupLine($"[{Color.Cyan2}]Replaced:[/] {entryName}");
@@ -138,6 +157,7 @@ namespace SAPTeam.EasySign.CommandLine
                         Logger.LogDebug("Adding entry: {EntryName}", entryName);
 
                         Bundle.AddEntry(file);
+                        bundleUpdated = true;
 
                         Logger.LogInformation("Entry: {EntryName} Added", entryName);
                         AnsiConsole.MarkupLine($"[blue]Added:[/] {entryName}");
@@ -161,22 +181,24 @@ namespace SAPTeam.EasySign.CommandLine
             if (errorOccurred)
             {
                 AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine("[red]One or more errors occurred, check the console output or logs for more information[/]");
-
-                if (!continueOnError)
-                {
-                    Logger.LogWarning("Add operation aborted");
-                    AnsiConsole.MarkupLine("[red]No changes were made to the bundle[/]");
-                    return;
-                }
+                AnsiConsole.MarkupLine("[orange]One or more errors occurred, check the console output or logs for more information[/]");
             }
 
-            Logger.LogInformation("Saving bundle");
-            statusContext.Status("[yellow]Saving Bundle[/]");
-            Bundle.Update();
+            if (bundleUpdated && (continueOnError || !errorOccurred))
+            {
+                Logger.LogInformation("Saving bundle");
+                statusContext.Status("[yellow]Saving Bundle[/]");
 
-            Logger.LogInformation("Bundle saved successfully");
-            AnsiConsole.MarkupLine($"[green]Bundle file: {Bundle.BundlePath} Saved successfully[/]");
+                Bundle.Update();
+
+                Logger.LogInformation("Bundle saved successfully");
+                AnsiConsole.MarkupLine($"[green]Bundle file: {Bundle.BundlePath} Saved successfully[/]");
+            }
+            else
+            {
+                Logger.LogInformation("No changes were made to the bundle");
+                AnsiConsole.MarkupLine("[yellow]No changes were made to the bundle[/]");
+            }
         }
 
         /// <summary>
