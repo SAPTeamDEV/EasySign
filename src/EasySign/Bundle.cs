@@ -454,7 +454,7 @@ namespace SAPTeam.EasySign
             string pemContents = pemBuilder.ToString();
 
             Logger.LogDebug("Signing manifest");
-            byte[] manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
+            byte[] manifestData = GetManifestData();
             byte[] signature = privateKey.SignData(manifestData, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
             Logger.LogDebug("Pending file: {name} for embedding in the bundle", name);
@@ -707,7 +707,7 @@ namespace SAPTeam.EasySign
                 Updating?.Invoke(zip);
 
                 Logger.LogDebug("Writing manifest to the bundle");
-                byte[] manifestData = Export(Manifest, SourceGenerationManifestContext.Default);
+                byte[] manifestData = GetManifestData();
                 WriteEntry(zip, ".manifest.ec", manifestData);
 
                 Logger.LogDebug("Writing signatures to the bundle");
@@ -724,6 +724,19 @@ namespace SAPTeam.EasySign
                     WriteEntry(zip, newFile.Key, newFile.Value);
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the manifest data as a byte array.
+        /// </summary>
+        /// <returns>
+        /// A byte array containing the manifest data.
+        /// </returns>
+        protected virtual byte[] GetManifestData()
+        {
+            Manifest.UpdatedBy = GetType().FullName;
+
+            return Export(Manifest, SourceGenerationManifestContext.Default);
         }
 
         /// <summary>

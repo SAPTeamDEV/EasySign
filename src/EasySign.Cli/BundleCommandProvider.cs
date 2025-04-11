@@ -15,7 +15,7 @@ namespace SAPTeam.EasySign.Cli
             _bundleLogger = bundleLogger;
         }
 
-        public override void InitializeBundle(string bundlePath)
+        protected override void InitializeBundle(string bundlePath)
         {
             Logger.LogInformation("Initializing bundle at {bundlePath}", bundlePath);
             Bundle = new Bundle(bundlePath, _bundleLogger);

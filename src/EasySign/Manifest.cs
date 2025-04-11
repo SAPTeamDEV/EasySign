@@ -12,6 +12,11 @@ namespace SAPTeam.EasySign
         private ConcurrentDictionary<string, byte[]> entries = new ConcurrentDictionary<string, byte[]>();
 
         /// <summary>
+        /// Gets or sets the full name of the class that updated the manifest.
+        /// </summary>
+        public string? UpdatedBy { get; set; }
+
+        /// <summary>
         /// Gets or sets the entries in the manifest as a sorted dictionary.
         /// </summary>
         /// <remarks>
