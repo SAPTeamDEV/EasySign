@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Security.AccessControl;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -19,6 +20,11 @@ namespace SAPTeam.EasySign.CommandLine
         /// Gets or sets the common name (CN) of the certificate subject.
         /// </summary>
         public string CommonName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the email address (E) of the certificate subject.
+        /// </summary>
+        public string? Email { get; set; }
 
         /// <summary>
         /// Gets or sets the organization (O) of the certificate subject.
@@ -51,6 +57,32 @@ namespace SAPTeam.EasySign.CommandLine
         public Dictionary<string, string> Unknown { get; } = [];
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="CertificateSubject"/> class with the specified X509Certificate2 certificate.
+        /// </summary>
+        /// <param name="certificate">
+        /// The certificate to extract the subject from.
+        /// </param>
+        public CertificateSubject(X509Certificate2 certificate) : this(certificate.Subject)
+        {
+            var commonName = certificate.GetNameInfo(X509NameType.SimpleName, false);
+            if (string.IsNullOrEmpty(commonName))
+            {
+                commonName = certificate.GetNameInfo(X509NameType.DnsName, false);
+            }
+
+            if (!string.IsNullOrEmpty(commonName))
+            {
+                CommonName = commonName;
+            }
+
+            var email = certificate.GetNameInfo(X509NameType.EmailName, false);
+            if (!string.IsNullOrEmpty(email))
+            {
+                Email = email;
+            }
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="CertificateSubject"/> class with the specified subject string.
         /// </summary>
         /// <param name="subject">
@@ -77,6 +109,9 @@ namespace SAPTeam.EasySign.CommandLine
                     case "CN":
                         CommonName = value;
                         break;
+                    case "E":
+                        Email = value;
+                        break;
                     case "O":
                         Organization = value;
                         break;
@@ -101,7 +136,7 @@ namespace SAPTeam.EasySign.CommandLine
 
             if (string.IsNullOrEmpty(CommonName))
             {
-                throw new ArgumentException("Common Name (CN) is required.");
+                CommonName = string.Empty;
             }
         }
 
@@ -110,16 +145,18 @@ namespace SAPTeam.EasySign.CommandLine
         /// Initializes a new instance of the <see cref="CertificateSubject"/> class with the specified properties.
         /// </summary>
         /// <param name="commonName">Common Name (CN) - required.</param>
+        /// <param name="email">Email (E) - optional.</param>
         /// <param name="organization">Organization (O) - optional.</param>
         /// <param name="organizationalUnit">Organizational Unit (OU) - optional.</param>
         /// <param name="locality">Locality (L) - optional.</param>
         /// <param name="state">State or Province (ST) - optional.</param>
         /// <param name="country">Country (C) - optional.</param>
-        public CertificateSubject(string commonName, string? organization, string? organizationalUnit, string? locality, string? state, string? country)
+        public CertificateSubject(string commonName, string? email, string? organization, string? organizationalUnit, string? locality, string? state, string? country)
         {
             Ensure.String.IsNotNullOrEmpty(commonName, nameof(commonName));
 
             CommonName = commonName;
+            Email = email;
             Organization = organization;
             OrganizationalUnit = organizationalUnit;
             Locality = locality;
@@ -141,27 +178,32 @@ namespace SAPTeam.EasySign.CommandLine
                 $"CN={CommonName}"
             };
 
-            if (!string.IsNullOrWhiteSpace(Organization))
+            if (!string.IsNullOrEmpty(Email))
+            {
+                components.Add($"E={Email}");
+            }
+
+            if (!string.IsNullOrEmpty(Organization))
             {
                 components.Add($"O={Organization}");
             }
 
-            if (!string.IsNullOrWhiteSpace(OrganizationalUnit))
+            if (!string.IsNullOrEmpty(OrganizationalUnit))
             {
                 components.Add($"OU={OrganizationalUnit}");
             }
 
-            if (!string.IsNullOrWhiteSpace(Locality))
+            if (!string.IsNullOrEmpty(Locality))
             {
                 components.Add($"L={Locality}");
             }
 
-            if (!string.IsNullOrWhiteSpace(State))
+            if (!string.IsNullOrEmpty(State))
             {
                 components.Add($"ST={State}");
             }
 
-            if (!string.IsNullOrWhiteSpace(Country))
+            if (!string.IsNullOrEmpty(Country))
             {
                 components.Add($"C={Country}");
             }

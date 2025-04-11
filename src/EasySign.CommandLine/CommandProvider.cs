@@ -299,6 +299,10 @@ namespace SAPTeam.EasySign.CommandLine
                     aliases: ["--commonName", "-cn"],
                     description: "Common Name for the certificate (e.g., example.com)");
 
+                var emailOption = new Option<string>(
+                    aliases: ["--email", "-e"],
+                    description: "Email address (e.g., support@example.com)");
+
                 var orgOption = new Option<string>(
                     aliases: ["--organization", "-o"],
                     description: "Organization name (e.g., Example Inc.)");
@@ -312,7 +316,7 @@ namespace SAPTeam.EasySign.CommandLine
                     description: "Locality (e.g., New York)");
 
                 var stateOption = new Option<string>(
-                    aliases: ["--state", "-s"],
+                    aliases: ["--state", "-st"],
                     description: "State or Province (e.g., NY)");
 
                 var countryOption = new Option<string>(
@@ -322,6 +326,7 @@ namespace SAPTeam.EasySign.CommandLine
                 var command = new Command("self-sign", "Generate self-signed root CA")
                 {
                     cnOption,
+                    emailOption,
                     orgOption,
                     ouOption,
                     locOption,
@@ -329,7 +334,7 @@ namespace SAPTeam.EasySign.CommandLine
                     countryOption,
                 };
 
-                command.SetHandler((string commonName, string organization, string organizationalUnit, string locality, string state, string country) =>
+                command.SetHandler((string commonName, string email, string organization, string organizationalUnit, string locality, string state, string country) =>
                 {
                     if (GetSelfSigningRootCA() != null)
                     {
@@ -346,6 +351,7 @@ namespace SAPTeam.EasySign.CommandLine
                     else
                     {
                         subject = new CertificateSubject(commonName: commonName,
+                                                         email: email,
                                                          organization: organization,
                                                          organizationalUnit: organizationalUnit,
                                                          locality: locality,
@@ -361,7 +367,7 @@ namespace SAPTeam.EasySign.CommandLine
                     }
 
                     AnsiConsole.MarkupLine($"[green]Root CA created successfully![/]");
-                }, cnOption, orgOption, ouOption, locOption, stateOption, countryOption);
+                }, cnOption, emailOption, orgOption, ouOption, locOption, stateOption, countryOption);
 
                 return command;
             }

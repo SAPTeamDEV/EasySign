@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Spectre.Console;
 using System.Text.RegularExpressions;
+using Spectre.Console.Rendering;
 
 namespace SAPTeam.EasySign.CommandLine
 {
@@ -31,52 +32,43 @@ namespace SAPTeam.EasySign.CommandLine
             int index = 1;
             foreach (var certificate in certificates)
             {
-                CertificateSubject subject = new CertificateSubject(certificate.Subject);
+                CertificateSubject subject = new CertificateSubject(certificate);
 
                 if (index > 1)
                 {
                     grid.AddRow();
                 }
 
-                if (certificates.Length > 1)
-                {
-                    grid.AddRow($"Certificate #{index}:");
-                }
-                else
-                {
-                    grid.AddRow("Certificate Info:");
-                }
-
-                grid.AddRow("   Common Name", certificate.GetNameInfo(X509NameType.SimpleName, false));
+                grid.AddRow($"Certificate {(certificates.Length > 1 ? $"#{index}" : "Info")}:");
+                grid.AddRow("   Common Name", subject.CommonName);
                 grid.AddRow("   Issuer Name", certificate.GetNameInfo(X509NameType.SimpleName, true));
 
-                string holderEmail = certificate.GetNameInfo(X509NameType.EmailName, false);
-                if (!string.IsNullOrWhiteSpace(holderEmail))
+                if (!string.IsNullOrEmpty(subject.Email))
                 {
-                    grid.AddRow("   Holder Email", holderEmail);
+                    grid.AddRow("   Email Address", subject.Email);
                 }
 
-                if (!string.IsNullOrWhiteSpace(subject.Organization))
+                if (!string.IsNullOrEmpty(subject.Organization))
                 {
                     grid.AddRow("   Organization", subject.Organization);
                 }
 
-                if (!string.IsNullOrWhiteSpace(subject.OrganizationalUnit))
+                if (!string.IsNullOrEmpty(subject.OrganizationalUnit))
                 {
                     grid.AddRow("   Organizational Unit", subject.OrganizationalUnit);
                 }
 
-                if (!string.IsNullOrWhiteSpace(subject.Locality))
+                if (!string.IsNullOrEmpty(subject.Locality))
                 {
                     grid.AddRow("   Locality", subject.Locality);
                 }
 
-                if (!string.IsNullOrWhiteSpace(subject.State))
+                if (!string.IsNullOrEmpty(subject.State))
                 {
                     grid.AddRow("   State", subject.State);
                 }
 
-                if (!string.IsNullOrWhiteSpace(subject.Country))
+                if (!string.IsNullOrEmpty(subject.Country))
                 {
                     grid.AddRow("   Country", subject.Country);
                 }
@@ -85,6 +77,11 @@ namespace SAPTeam.EasySign.CommandLine
                 grid.AddRow("   Valid To", certificate.GetExpirationDateString());
                 grid.AddRow("   Thumbprint", Regex.Replace(certificate.Thumbprint, "(.{2})(?!$)", "$1:"));
                 grid.AddRow("   Serial Number", Regex.Replace(certificate.SerialNumber, "(.{2})(?!$)", "$1:"));
+
+                if (subject.Unknown.Count > 0)
+                {
+                    grid.AddRow(new Text("   Other Properties"), new Text(string.Join("\n", subject.Unknown.Select(x => $"{x.Key}={x.Value}"))));
+                }
 
                 index++;
             }
@@ -109,6 +106,9 @@ namespace SAPTeam.EasySign.CommandLine
                 commonName = Console.ReadLine();
             }
 
+            Console.Write("Email (E) (optional): ");
+            string? email = Console.ReadLine();
+
             Console.Write("Organization (O) (optional): ");
             string? organization = Console.ReadLine();
 
@@ -125,6 +125,7 @@ namespace SAPTeam.EasySign.CommandLine
             string? country = Console.ReadLine();
 
             return new CertificateSubject(commonName: commonName,
+                                          email: email,
                                           organization: organization,
                                           organizationalUnit: organizationalUnit,
                                           locality: locality,
