@@ -1,4 +1,6 @@
 ﻿using System.CommandLine;
+using System.Diagnostics.Metrics;
+using System.Security.AccessControl;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
@@ -334,45 +336,73 @@ namespace SAPTeam.EasySign.CommandLine
                     countryOption,
                 };
 
-                command.SetHandler((string commonName, string email, string organization, string organizationalUnit, string locality, string state, string country) =>
-                {
-                    if (GetSelfSigningRootCA() != null)
-                    {
-                        AnsiConsole.MarkupLine("[red]Root CA already exists![/]");
-                        return;
-                    }
-
-                    string subject;
-
-                    if (string.IsNullOrEmpty(commonName))
-                    {
-                        subject = CertificateUtilities.GetSubjectNameFromUser();
-                    }
-                    else
-                    {
-                        subject = new CertificateSubject(commonName: commonName,
-                                                         email: email,
-                                                         organization: organization,
-                                                         organizationalUnit: organizationalUnit,
-                                                         locality: locality,
-                                                         state: state,
-                                                         country: country).ToString();
-                    }
-
-                    var rootCA = CertificateUtilities.CreateSelfSignedCACertificate(subject);
-
-                    using (FileStream fs = File.Create(Path.Combine(AppDirectory, $"rootCA.pfx")))
-                    {
-                        fs.Write(rootCA.Export(X509ContentType.Pfx));
-                    }
-
-                    CertificateUtilities.DisplayCertificate(rootCA);
-
-                    AnsiConsole.MarkupLine($"[green]Root CA created successfully![/]");
-                }, cnOption, emailOption, orgOption, ouOption, locOption, stateOption, countryOption);
+                command.SetHandler(RunSelfSign, cnOption, emailOption, orgOption, ouOption, locOption, stateOption, countryOption);
 
                 return command;
             }
+        }
+
+        /// <summary>
+        /// Runs the self-sign command to create a self-signed root CA certificate.
+        /// </summary>
+        /// <param name="commonName">Common Name (CN) - required. if not specified, will prompt for user input.</param>
+        /// <param name="email">Email (E) - optional.</param>
+        /// <param name="organization">Organization (O) - optional.</param>
+        /// <param name="organizationalUnit">Organizational Unit (OU) - optional.</param>
+        /// <param name="locality">Locality (L) - optional.</param>
+        /// <param name="state">State or Province (ST) - optional.</param>
+        /// <param name="country">Country (C) - optional.</param>
+        public virtual void RunSelfSign(string? commonName, string? email, string? organization, string? organizationalUnit, string? locality, string? state, string? country)
+        {
+            Logger.LogInformation("Running self-sign command");
+
+            if (GetSelfSigningRootCA() != null)
+            {
+                Logger.LogWarning("Root CA already exists");
+                AnsiConsole.MarkupLine("[red]Root CA already exists![/]");
+                return;
+            }
+
+            string subject;
+
+            if (string.IsNullOrEmpty(commonName))
+            {
+                Logger.LogDebug("Getting subject name from user");
+                subject = CertificateUtilities.GetSubjectNameFromUser();
+            }
+            else
+            {
+                subject = new CertificateSubject(commonName: commonName,
+                                                 email: email,
+                                                 organization: organization,
+                                                 organizationalUnit: organizationalUnit,
+                                                 locality: locality,
+                                                 state: state,
+                                                 country: country).ToString();
+            }
+
+            Logger.LogInformation("Creating self-signed root CA certificate with subject: {subject}", subject);
+            var rootCA = CertificateUtilities.CreateSelfSignedCACertificate(subject);
+            Logger.LogDebug("Root CA certificate issued with subject: {subject}", rootCA.Subject);
+
+            Logger.LogDebug("Exporting root CA certificate to PFX file");
+            using (FileStream fs = File.Create(Path.Combine(AppDirectory, $"rootCA.pfx")))
+            {
+                fs.Write(rootCA.Export(X509ContentType.Pfx));
+            }
+
+            Logger.LogDebug("Clearing issued certificates");
+
+            Configuration.IssuedCertificates.Clear();
+            if (Directory.Exists(Path.Combine(AppDirectory, "certs")))
+            {
+                Directory.Delete(Path.Combine(AppDirectory, "certs"), true);
+            }
+
+            CertificateUtilities.DisplayCertificate(rootCA);
+
+            Logger.LogInformation("Root CA created successfully");
+            AnsiConsole.MarkupLine($"[green]Root CA created successfully![/]");
         }
 
         /// <summary>
