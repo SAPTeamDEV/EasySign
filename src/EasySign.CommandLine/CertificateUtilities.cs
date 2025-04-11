@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
 using Spectre.Console;
+using System.Text.RegularExpressions;
 
 namespace SAPTeam.EasySign.CommandLine
 {
@@ -43,13 +44,19 @@ namespace SAPTeam.EasySign.CommandLine
                 {
                     grid.AddRow("Certificate Info:");
                 }
-                
+
                 grid.AddRow("   Common Name", certificate.GetNameInfo(X509NameType.SimpleName, false));
                 grid.AddRow("   Issuer Name", certificate.GetNameInfo(X509NameType.SimpleName, true));
-                grid.AddRow("   Holder Email", certificate.GetNameInfo(X509NameType.EmailName, false));
+
+                string holderEmail = certificate.GetNameInfo(X509NameType.EmailName, false);
+                if (!string.IsNullOrWhiteSpace(holderEmail))
+                {
+                    grid.AddRow("   Holder Email", holderEmail);
+                }
+
                 grid.AddRow("   Valid From", certificate.GetEffectiveDateString());
                 grid.AddRow("   Valid To", certificate.GetExpirationDateString());
-                grid.AddRow("   Thumbprint", certificate.Thumbprint);
+                grid.AddRow("   Thumbprint", Regex.Replace(certificate.Thumbprint, "(.{2})(?!$)", "$1:"));
 
                 index++;
             }
