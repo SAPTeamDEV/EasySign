@@ -1,5 +1,8 @@
 ﻿using System.CommandLine;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,8 +14,9 @@ namespace SAPTeam.EasySign.CommandLine
     /// <summary>
     /// Provides command definitions and handlers for the EasySign command line interface.
     /// </summary>
-    /// <typeparam name="T">The type of the bundle.</typeparam>
-    public abstract partial class CommandProvider<T>
+    /// <typeparam name="TBundle">The type of the bundle.</typeparam>
+    public abstract partial class CommandProvider<TBundle> : IDisposable
+        where TBundle : Bundle
     {
         /// <summary>
         /// Gets or sets the logger to use for logging.
@@ -23,6 +27,11 @@ namespace SAPTeam.EasySign.CommandLine
         /// Gets or sets the application directory.
         /// </summary>
         public string AppDirectory { get; set; }
+
+        /// <summary>
+        /// Gets the application configurations.
+        /// </summary>
+        public Configuration Configuration { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CommandProvider{T}"/> class with the specified application directory and logger.
@@ -37,6 +46,17 @@ namespace SAPTeam.EasySign.CommandLine
         protected CommandProvider(string appDirectory, ILogger? logger)
         {
             AppDirectory = appDirectory ?? throw new ArgumentNullException(nameof(appDirectory));
+
+            if (File.Exists(Path.Combine(AppDirectory, "config.json")))
+            {
+                using var fs = File.OpenRead(Path.Combine(AppDirectory, "config.json"));
+                Configuration = JsonSerializer.Deserialize(fs, typeof(Configuration), SourceGenerationConfigurationContext.Default) as Configuration ?? new();
+            }
+            else
+            {
+                Configuration = new();
+            }
+
             Logger = logger ?? NullLogger.Instance;
         }
 
@@ -66,11 +86,11 @@ namespace SAPTeam.EasySign.CommandLine
                 continueOpt.AddAlias("-c");
 
                 Command command = new Command("add", "Create new bundle or update an existing one")
-                    {
-                        BundlePath,
-                        replaceOpt,
-                        continueOpt,
-                    };
+                {
+                    BundlePath,
+                    replaceOpt,
+                    continueOpt,
+                };
 
                 command.SetHandler((bundlePath, replace, continueOnError) =>
                 {
@@ -121,10 +141,46 @@ namespace SAPTeam.EasySign.CommandLine
                             return;
                         }
 
-                        var subject = CertificateUtilities.GetSubjectNameFromUser();
-                        var issuedCert = CertificateUtilities.IssueCertificate(subject, rootCA);
+                        string? selectedCert = null;
+                        if (Configuration.IssuedCertificates.Count > 0)
+                        {
+                            selectedCert = AnsiConsole.Prompt<string>(
+                            new SelectionPrompt<string>()
+                                .PageSize(10)
+                                .Title("Select Self-Signing Certificate")
+                                .MoreChoicesText("[grey](Move up and down to see more certificates)[/]")
+                                .AddChoices(Configuration.IssuedCertificates.Keys)
+                                .AddChoices("Issue New Certificate"));
+                        }
 
-                        certs = new X509Certificate2Collection(issuedCert);
+                        if (string.IsNullOrEmpty(selectedCert) || selectedCert == "Issue New Certificate")
+                        {
+                            var subject = CertificateUtilities.GetSubjectNameFromUser();
+                            var issuedCert = CertificateUtilities.IssueCertificate(subject, rootCA);
+
+                            var certFileName = $"{issuedCert.GetNameInfo(X509NameType.SimpleName, false).Replace(" ", "_")}-{issuedCert.GetSerialNumberString()[^6]}.pfx";
+                            var certFilePath = Path.Combine(AppDirectory, "certs", certFileName);
+
+                            Directory.CreateDirectory(Path.Combine(AppDirectory, "certs"));
+
+                            using (var fs = File.Create(certFilePath))
+                            {
+                                fs.Write(issuedCert.Export(X509ContentType.Pfx));
+                            }
+
+                            Configuration.IssuedCertificates.Add(subject, certFileName);
+                            certs = new X509Certificate2Collection(issuedCert);
+                        }
+                        else
+                        {
+                            certs = [];
+                            var certFilePath = Path.Combine(AppDirectory, "certs", Configuration.IssuedCertificates[selectedCert]);
+#if NET9_0_OR_GREATER
+                            certs.AddRange(X509CertificateLoader.LoadPkcs12CollectionFromFile(certFilePath, null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable));
+#else
+                            certs.Import(certFilePath, null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
+#endif
+                        }
                     }
                     else
                     {
@@ -285,6 +341,30 @@ namespace SAPTeam.EasySign.CommandLine
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Writes the configuration to disk.
+        /// </summary>
+        public void WriteConfig()
+        {
+            string json = JsonSerializer.Serialize(Configuration, typeof(Configuration), SourceGenerationConfigurationContext.Default);
+            var buffer = Encoding.UTF8.GetBytes(json);
+
+            using (FileStream fs = File.OpenWrite(Path.Combine(AppDirectory, "config.json")))
+            {
+                fs.Write(buffer);
+            }
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            WriteConfig();
+
+            Bundle = null;
+
+            GC.SuppressFinalize(this);
         }
     }
 }

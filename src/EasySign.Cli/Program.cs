@@ -30,9 +30,13 @@ namespace SAPTeam.EasySign.Cli
             Microsoft.Extensions.Logging.ILogger commandProviderLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "CommandProvider"))
                 .CreateLogger("CommandProvider");
 
-            RootCommand root = new BundleCommandProvider(AppDirectory, commandProviderLogger, bundleLogger).GetRootCommand();
-            int exitCode = root.Invoke(args);
-
+            int exitCode;
+            using (var cp = new BundleCommandProvider(AppDirectory, commandProviderLogger, bundleLogger))
+            {
+                RootCommand root = cp.GetRootCommand();
+                exitCode = root.Invoke(args);
+            }
+            
             appLogger.Information("Shutting down EasySign CLI at {DateTime} with exit code {ExitCode}", DateTime.Now, exitCode);
 
             Log.CloseAndFlush();

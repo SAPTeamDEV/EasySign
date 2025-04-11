@@ -6,13 +6,12 @@ using Spectre.Console;
 
 namespace SAPTeam.EasySign.CommandLine
 {
-    public abstract partial class CommandProvider<T>
-        where T : Bundle
+    public abstract partial class CommandProvider<TBundle>
     {
         /// <summary>
         /// Gets or sets the bundle.
         /// </summary>
-        public T? Bundle { get; protected set; }
+        public TBundle? Bundle { get; protected set; }
 
         /// <summary>
         /// Initializes the bundle.
