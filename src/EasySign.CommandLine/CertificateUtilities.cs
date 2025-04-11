@@ -231,9 +231,9 @@ namespace SAPTeam.EasySign.CommandLine
                 caRequest.CertificateExtensions.Add(
                     new X509SubjectKeyIdentifierExtension(caRequest.PublicKey, false));
 
-                // Create the self-signed certificate. Validity is set from yesterday to 10 years in the future.
-                var rootCert = caRequest.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1),
-                                                          DateTimeOffset.UtcNow.AddYears(10));
+                // Create the self-signed certificate. Validity is set from now to 100 years in the future.
+                var rootCert = caRequest.CreateSelfSigned(DateTimeOffset.UtcNow,
+                                                          DateTimeOffset.UtcNow.AddYears(100));
 
                 // Export and re-import to mark the key as exportable (if needed for further signing).
 #if NET9_0_OR_GREATER
@@ -289,9 +289,9 @@ namespace SAPTeam.EasySign.CommandLine
                         throw new InvalidOperationException("The provided CA certificate does not contain a private key.");
                     }
 
-                    // Create the certificate valid from yesterday until 2 years in the future.
-                    var issuedCert = req.Create(caCert, DateTimeOffset.UtcNow.AddDays(-1),
-                                                  DateTimeOffset.UtcNow.AddYears(2), serialNumber);
+                    // Create the certificate valid from now until 20 years in the future.
+                    var issuedCert = req.Create(caCert, DateTimeOffset.UtcNow,
+                                                  DateTimeOffset.UtcNow.AddYears(20), serialNumber);
 
                     return issuedCert.CopyWithPrivateKey(rsa);
                 }
