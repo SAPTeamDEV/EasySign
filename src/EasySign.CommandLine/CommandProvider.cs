@@ -366,6 +366,8 @@ namespace SAPTeam.EasySign.CommandLine
                         fs.Write(rootCA.Export(X509ContentType.Pfx));
                     }
 
+                    CertificateUtilities.DisplayCertificate(rootCA);
+
                     AnsiConsole.MarkupLine($"[green]Root CA created successfully![/]");
                 }, cnOption, emailOption, orgOption, ouOption, locOption, stateOption, countryOption);
 
