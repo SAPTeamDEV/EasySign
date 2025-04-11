@@ -275,16 +275,20 @@ namespace SAPTeam.EasySign.CommandLine
         {
             get
             {
+                var ignoreTimeOpt = new Option<bool>("--ignore-time", "Ignore time validation");
+                ignoreTimeOpt.AddAlias("-i");
+
                 Command command = new Command("verify", "Verify bundle")
                 {
                     BundlePath,
+                    ignoreTimeOpt,
                 };
 
-                command.SetHandler((bundlePath) =>
+                command.SetHandler((bundlePath, ignoreTime) =>
                 {
                     InitializeBundle(bundlePath);
-                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunVerify(ctx));
-                }, BundlePath);
+                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunVerify(ctx, ignoreTime));
+                }, BundlePath, ignoreTimeOpt);
 
                 return command;
             }

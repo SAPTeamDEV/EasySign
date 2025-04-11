@@ -308,7 +308,7 @@ namespace SAPTeam.EasySign.CommandLine
                 Logger.LogDebug("Verifying certificate {cert}", cert);
                 statusContext.Status("[yellow]Verifying Certificate[/]");
 
-                bool verifyCert = VerifyCertificate(cert);
+                bool verifyCert = VerifyCertificate(cert, false);
                 if (!verifyCert)
                 {
                     Logger.LogWarning("Skipping signing with {cert}", cert);
@@ -355,7 +355,8 @@ namespace SAPTeam.EasySign.CommandLine
         /// Runs the verify command.
         /// </summary>
         /// <param name="statusContext">The status context for interacting with <see cref="AnsiConsole.Status"/>.</param>
-        protected virtual void RunVerify(StatusContext statusContext)
+        /// <param name="ignoreTime">A value indicating whether to ignore time validity checks for certificate verification.</param>
+        protected virtual void RunVerify(StatusContext statusContext, bool ignoreTime)
         {
             Logger.LogInformation("Running verify command");
 
@@ -391,7 +392,7 @@ namespace SAPTeam.EasySign.CommandLine
                 Logger.LogDebug("Verifying certificate {cert}", certificate);
                 AnsiConsole.MarkupLine($"Verifying Certificate [{Color.Teal}]{certificate.GetNameInfo(X509NameType.SimpleName, false)}[/] Issued by [{Color.Aqua}]{certificate.GetNameInfo(X509NameType.SimpleName, true)}[/]");
 
-                bool verifyCert = VerifyCertificate(certificate);
+                bool verifyCert = VerifyCertificate(certificate, ignoreTime);
                 if (!verifyCert)
                 {
                     Logger.LogWarning("Skipping signature verification for {cert}", certificate);
@@ -516,30 +517,27 @@ namespace SAPTeam.EasySign.CommandLine
         /// Verifies the validity of a certificate.
         /// </summary>
         /// <param name="certificate">The certificate to verify.</param>
+        /// <param name="ignoreTime">A value indicating whether to ignore time validity checks.</param>
         /// <returns>True if the certificate is valid; otherwise, false.</returns>
-        protected bool VerifyCertificate(X509Certificate2 certificate)
+        protected bool VerifyCertificate(X509Certificate2 certificate, bool ignoreTime)
         {
             if (Bundle == null)
             {
                 throw new ApplicationException("Bundle is not initialized");
             }
 
-            List<bool> verifyResults = [];
-
             X509Certificate2? rootCA;
             if ((rootCA = GetSelfSigningRootCA()) != null)
             {
                 Logger.LogDebug("Verifying certificate {cert} with self-signing root CA", certificate);
 
-                X509ChainPolicy policy = new X509ChainPolicy();
-                policy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-                policy.CustomTrustStore.Add(rootCA);
-                policy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
-                policy.RevocationMode = X509RevocationMode.NoCheck;
+                X509ChainPolicy selfSignPolicy = new X509ChainPolicy();
+                selfSignPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                selfSignPolicy.CustomTrustStore.Add(rootCA);
+                selfSignPolicy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
+                selfSignPolicy.RevocationMode = X509RevocationMode.NoCheck;
 
-                bool selfSignVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] selfSignStatuses, policy: policy);
-                verifyResults.Add(selfSignVerification);
-
+                bool selfSignVerification = Bundle.VerifyCertificate(certificate, out _, policy: selfSignPolicy);
                 Logger.LogInformation("Certificate verification with self-signing root CA for {cert}: {result}", certificate, selfSignVerification);
                 
                 if (selfSignVerification)
@@ -549,36 +547,30 @@ namespace SAPTeam.EasySign.CommandLine
                 }
             }
 
-            Logger.LogDebug("Verifying certificate {cert} with default verification policy", certificate);
-            bool defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses);
-            verifyResults.Add(defaultVerification);
+            X509ChainPolicy policy = new();
 
-            Logger.LogInformation("Certificate verification with default policy for {cert}: {result}", certificate, defaultVerification);
-            AnsiConsole.MarkupLine($"[{(defaultVerification ? Color.Green : Color.Red)}] Certificate Verification {(defaultVerification ? "Successful" : "Failed")}[/]");
+            if (ignoreTime)
+            {
+                policy.VerificationFlags |= X509VerificationFlags.IgnoreCtlNotTimeValid;
+            }
+
+            Logger.LogDebug("Verifying certificate {cert} with system trust store", certificate);
+            bool defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses, policy);
+
+            Logger.LogInformation("Certificate verification with system trust store for {cert}: {result}", certificate, defaultVerification);
 
             if (!defaultVerification)
             {
-                bool timeIssue = statuses.Any(x => x.Status.HasFlag(X509ChainStatusFlags.NotTimeValid));
-
                 Utilities.EnumerateStatuses(statuses);
-
-                if (timeIssue)
-                {
-                    Logger.LogWarning("Certificate has time validity issues, retrying verification with time check disabled");
-
-                    X509ChainPolicy policy = new X509ChainPolicy();
-                    policy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
-
-                    bool noTimeVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] noTimeStatuses, policy: policy);
-                    verifyResults.Add(noTimeVerification);
-
-                    Logger.LogInformation("Certificate verification without time checking for {cert}: {result}", certificate, noTimeVerification);
-                    AnsiConsole.MarkupLine($"[{(noTimeVerification ? Color.Green : Color.Red)}] Certificate Verification without time checking {(noTimeVerification ? "Successful" : "Failed")}[/]");
-                    Utilities.EnumerateStatuses(noTimeStatuses);
-                }
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"[green] Certificate Verification Successful[/]");
+                return true;
             }
 
-            return verifyResults.Any(x => x);
+            AnsiConsole.MarkupLine($"[red] Certificate Verification Failed[/]");
+            return false;
         }
     }
 }
