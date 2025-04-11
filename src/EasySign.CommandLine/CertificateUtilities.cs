@@ -122,6 +122,8 @@ namespace SAPTeam.EasySign.CommandLine
                     store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
 
                     collection = store.Certificates;
+
+                    store.Close();
                 }
                 catch
                 {
@@ -201,9 +203,9 @@ namespace SAPTeam.EasySign.CommandLine
 
                 // Export and re-import to mark the key as exportable (if needed for further signing).
 #if NET9_0_OR_GREATER
-                var cert = X509CertificateLoader.LoadPkcs12(rootCert.Export(X509ContentType.Pfx), null);
+                var cert = X509CertificateLoader.LoadPkcs12(rootCert.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
 #else
-                var cert = new X509Certificate2(rootCert.Export(X509ContentType.Pfx));
+                var cert = new X509Certificate2(rootCert.Export(X509ContentType.Pfx), "", X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
 #endif
 
                 return cert;
@@ -220,6 +222,8 @@ namespace SAPTeam.EasySign.CommandLine
         {
             using (RSA rsa = RSA.Create(2048))
             {
+                _ = rsa.ExportRSAPrivateKey(); // Ensure the RSA key is created.
+
                 // Build the certificate request for the issued certificate.
                 var req = new CertificateRequest(subjectName, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
 
@@ -255,14 +259,7 @@ namespace SAPTeam.EasySign.CommandLine
                     var issuedCert = req.Create(caCert, DateTimeOffset.UtcNow.AddDays(-1),
                                                   DateTimeOffset.UtcNow.AddYears(2), serialNumber);
 
-                    // Export and re-import to ensure the certificate includes the private key.
-#if NET9_0_OR_GREATER
-                    var cert = X509CertificateLoader.LoadPkcs12(issuedCert.Export(X509ContentType.Pfx), null);
-#else
-                    var cert = new X509Certificate2(issuedCert.Export(X509ContentType.Pfx));
-#endif
-
-                    return cert;
+                    return issuedCert.CopyWithPrivateKey(rsa);
                 }
             }
         }

@@ -18,7 +18,42 @@ namespace SAPTeam.EasySign.CommandLine
         /// Initializes the bundle.
         /// </summary>
         /// <param name="bundlePath">Path of the bundle.</param>
-        public abstract void InitializeBundle(string bundlePath);
+        protected abstract void InitializeBundle(string bundlePath);
+
+        /// <summary>
+        /// Loads the bundle from file and handles load errors.
+        /// </summary>
+        /// <param name="readOnly">
+        /// A value indicating whether to load the bundle in read-only mode.
+        /// </param>
+        protected bool LoadBundle(bool readOnly = true)
+        {
+            if (Bundle == null)
+            {
+                throw new ApplicationException("Bundle is not initialized");
+            }
+
+            try
+            {
+                Bundle.LoadFromFile(readOnly);
+
+                if (!string.IsNullOrEmpty(Bundle.Manifest.UpdatedBy) && Bundle.Manifest.UpdatedBy != Bundle.GetType().FullName)
+                {
+                    Logger.LogWarning("Bundle was created by a different application");
+                    AnsiConsole.MarkupLine($"[{Color.Orange1}]Warning:[/] Bundle was created by a different application");
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to load bundle from file: {BundlePath}", Bundle.BundlePath);
+                AnsiConsole.MarkupLine($"[{Color.Red}]Failed to load bundle from file: {Bundle.BundlePath}[/]");
+                AnsiConsole.MarkupLine($"[{Color.Red}]Error:[/] {ex.GetType().Name}: {ex.Message}");
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// Runs the add command.
@@ -45,7 +80,8 @@ namespace SAPTeam.EasySign.CommandLine
             {
                 Logger.LogDebug("A bundle file exists, loading bundle");
                 statusContext.Status("[yellow]Loading Bundle[/]");
-                Bundle.LoadFromFile(false);
+                
+                if (!LoadBundle(false)) return;
             }
 
             statusContext.Status("[yellow]Adding Files[/]");
@@ -151,7 +187,7 @@ namespace SAPTeam.EasySign.CommandLine
 
             Logger.LogDebug("Loading bundle");
             statusContext.Status("[yellow]Loading Bundle[/]");
-            Bundle.LoadFromFile(false);
+            if (!LoadBundle(false)) return;
 
             int divider = 0;
             int signs = 0;
@@ -194,7 +230,7 @@ namespace SAPTeam.EasySign.CommandLine
                 if (prvKey == null)
                 {
                     Logger.LogError("Failed to acquire RSA private key for {cert}", cert);
-                    AnsiConsole.MarkupLine($"[{Color.Green}] Failed to Acquire RSA Private Key[/]");
+                    AnsiConsole.MarkupLine($"[{Color.Red}] Failed to Acquire RSA Private Key[/]");
                     continue;
                 }
 
@@ -246,7 +282,7 @@ namespace SAPTeam.EasySign.CommandLine
 
             Logger.LogDebug("Loading bundle");
             statusContext.Status("[yellow]Loading Bundle[/]");
-            Bundle.LoadFromFile();
+            if (!LoadBundle()) return;
 
             Logger.LogInformation("Starting certificate and signature verification");
             statusContext.Status("[yellow]Verification Phase 1: Certificates and signatures[/]");
@@ -414,7 +450,7 @@ namespace SAPTeam.EasySign.CommandLine
 
                 Logger.LogInformation("Certificate verification with self-signing root CA for {cert}: {result}", certificate, selfSignVerification);
                 
-                if (!selfSignVerification)
+                if (selfSignVerification)
                 {
                     AnsiConsole.MarkupLine($"[{Color.Green}] Certificate Verification with Self-Signing Root CA Successful[/]");
                     return true;
