@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using System.Text.Json.Serialization;
 
 using Microsoft.Extensions.Logging;
 
@@ -6,11 +7,11 @@ using SAPTeam.EasySign.CommandLine;
 
 namespace SAPTeam.EasySign.Cli
 {
-    internal class BundleCommandProvider : CommandProvider<Bundle>
+    internal class BundleCommandProvider : CommandProvider<Bundle, CommandProviderConfiguration>
     {
         private readonly ILogger _bundleLogger;
 
-        public BundleCommandProvider(string appDirectory, ILogger logger, ILogger bundleLogger) : base(appDirectory, logger)
+        public BundleCommandProvider(CommandProviderConfiguration configuration, ILogger logger, ILogger bundleLogger) : base(configuration, logger)
         {
             _bundleLogger = bundleLogger;
         }
@@ -30,9 +31,17 @@ namespace SAPTeam.EasySign.Cli
                 Sign,
                 Verify,
                 SelfSign,
+                Trust,
             };
 
             return root;
         }
+    }
+
+    [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata, WriteIndented = true, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    [JsonSerializable(typeof(CommandProviderConfiguration))]
+    internal partial class SourceGenerationConfigurationContext : JsonSerializerContext
+    {
+
     }
 }

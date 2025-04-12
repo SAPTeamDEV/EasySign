@@ -4,9 +4,11 @@ using Microsoft.Extensions.Logging;
 
 using Spectre.Console;
 
+using static System.Net.Mime.MediaTypeNames;
+
 namespace SAPTeam.EasySign.CommandLine
 {
-    public abstract partial class CommandProvider<TBundle>
+    public abstract partial class CommandProvider<TBundle, TConfiguration>
     {
         /// <summary>
         /// Gets or sets the bundle.
@@ -273,7 +275,8 @@ namespace SAPTeam.EasySign.CommandLine
         /// </summary>
         /// <param name="statusContext">The status context for interacting with <see cref="AnsiConsole.Status"/>.</param>
         /// <param name="certificates">The certificates.</param>
-        protected virtual void RunSign(StatusContext statusContext, X509Certificate2Collection certificates)
+        /// <param name="skipVerify">A value indicating whether to skip certificate verification.</param>
+        protected virtual void RunSign(StatusContext statusContext, X509Certificate2Collection certificates, bool skipVerify)
         {
             Logger.LogInformation("Running sign command");
 
@@ -305,14 +308,17 @@ namespace SAPTeam.EasySign.CommandLine
 
                 CertificateUtilities.DisplayCertificate(cert);
 
-                Logger.LogDebug("Verifying certificate {cert}", cert);
-                statusContext.Status("[yellow]Verifying Certificate[/]");
-
-                bool verifyCert = VerifyCertificate(cert, false);
-                if (!verifyCert)
+                if (!skipVerify)
                 {
-                    Logger.LogWarning("Skipping signing with {cert}", cert);
-                    continue;
+                    Logger.LogDebug("Verifying certificate {cert}", cert);
+                    statusContext.Status("[yellow]Verifying Certificate[/]");
+
+                    bool verifyCert = VerifyCertificate(cert, false);
+                    if (!verifyCert)
+                    {
+                        Logger.LogWarning("Skipping signing with {cert}", cert);
+                        continue;
+                    }
                 }
 
                 Logger.LogDebug("Acquiring RSA private key for {cert}", cert);
@@ -526,6 +532,9 @@ namespace SAPTeam.EasySign.CommandLine
                 throw new ApplicationException("Bundle is not initialized");
             }
 
+            List<bool> verificationResults = [];
+            List<X509ChainStatus[]> verificationStatuses = [];
+
             X509Certificate2? rootCA;
             if ((rootCA = GetSelfSigningRootCA()) != null)
             {
@@ -537,9 +546,12 @@ namespace SAPTeam.EasySign.CommandLine
                 selfSignPolicy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
                 selfSignPolicy.RevocationMode = X509RevocationMode.NoCheck;
 
-                bool selfSignVerification = Bundle.VerifyCertificate(certificate, out _, policy: selfSignPolicy);
+                bool selfSignVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] selfSignChainStatuses, policy: selfSignPolicy);
                 Logger.LogInformation("Certificate verification with self-signing root CA for {cert}: {result}", certificate, selfSignVerification);
                 
+                verificationResults.Add(selfSignVerification);
+                verificationStatuses.Add(selfSignChainStatuses);
+
                 if (selfSignVerification)
                 {
                     AnsiConsole.MarkupLine($"[{Color.Green}] Certificate Verification with Self-Signing Root CA Successful[/]");
@@ -548,6 +560,7 @@ namespace SAPTeam.EasySign.CommandLine
             }
 
             X509ChainPolicy policy = new();
+            policy.ExtraStore.AddRange(Configuration.LoadCertificates(CertificateStore.IntermediateCA));
 
             if (ignoreTime)
             {
@@ -555,22 +568,40 @@ namespace SAPTeam.EasySign.CommandLine
             }
 
             Logger.LogDebug("Verifying certificate {cert} with system trust store", certificate);
-            bool defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] statuses, policy);
-
+            bool defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] defaultChainStatuses, policy);
             Logger.LogInformation("Certificate verification with system trust store for {cert}: {result}", certificate, defaultVerification);
 
-            if (!defaultVerification)
+            verificationResults.Add(defaultVerification);
+            verificationStatuses.Add(defaultChainStatuses);
+
+            if (!verificationResults.Any(x => x) && Configuration.TrustedRootCA.Count > 0)
             {
-                Utilities.EnumerateStatuses(statuses);
-            }
-            else
-            {
-                AnsiConsole.MarkupLine($"[green] Certificate Verification Successful[/]");
-                return true;
+                policy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                policy.CustomTrustStore.AddRange(Configuration.LoadCertificates(CertificateStore.TrustedRootCA));
+
+                Logger.LogDebug("Verifying certificate {cert} with custom trust store", certificate);
+                bool customVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] customChainStatuses, policy);
+                Logger.LogInformation("Certificate verification with custom trust store for {cert}: {result}", certificate, defaultVerification);
+
+                verificationResults.Add(customVerification);
+                verificationStatuses.Add(customChainStatuses);
             }
 
-            AnsiConsole.MarkupLine($"[red] Certificate Verification Failed[/]");
-            return false;
+            if (!verificationResults.Any(x => x))
+            {
+                var statuses = verificationStatuses.Aggregate((prev, next) =>
+                {
+                    return prev.Intersect(next).ToArray();
+                });
+
+                Utilities.EnumerateStatuses(statuses);
+
+                AnsiConsole.MarkupLine($"[red] Certificate Verification Failed[/]");
+                return false;
+            }
+
+            AnsiConsole.MarkupLine($"[green] Certificate Verification Successful[/]");
+            return true;
         }
     }
 }

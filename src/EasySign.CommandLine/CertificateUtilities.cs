@@ -182,15 +182,14 @@ namespace SAPTeam.EasySign.CommandLine
 
             return collection;
         }
-            
 
         /// <summary>
-        /// Prompts the user for certificate subject information and generates a standardized subject name.
+        /// Prompts the user for certificate subject information and generates a <see cref="CertificateSubject"/>.
         /// </summary>
         /// <returns>
-        /// The formatted certificate subject string.
+        /// The <see cref="CertificateSubject"/> representing the generated subject.
         /// </returns>
-        public static string GetSubjectNameFromUser()
+        public static CertificateSubject GetSubjectFromUser()
         {
             string? commonName = null;
 
@@ -224,7 +223,7 @@ namespace SAPTeam.EasySign.CommandLine
                                           organizationalUnit: organizationalUnit,
                                           locality: locality,
                                           state: state,
-                                          country: country).ToString();
+                                          country: country);
         }
 
         /// <summary>

@@ -1,13 +1,19 @@
 ﻿using System.CommandLine;
+using System.Text.Json.Serialization;
+using System.Text.Json;
+using System.Text;
 
 using Serilog;
 using Serilog.Extensions.Logging;
+using SAPTeam.EasySign.CommandLine;
 
 namespace SAPTeam.EasySign.Cli
 {
     internal class Program
     {
         public static string AppDirectory => AppDomain.CurrentDomain.BaseDirectory;
+
+        public static string ConfigPath => Path.Combine(AppDirectory, "config.json");
 
         private static int Main(string[] args)
         {
@@ -30,14 +36,29 @@ namespace SAPTeam.EasySign.Cli
             Microsoft.Extensions.Logging.ILogger commandProviderLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "CommandProvider"))
                 .CreateLogger("CommandProvider");
 
-            int exitCode;
-            using (var cp = new BundleCommandProvider(AppDirectory, commandProviderLogger, bundleLogger))
+            CommandProviderConfiguration config;
+            if (File.Exists(ConfigPath))
             {
-                RootCommand root = cp.GetRootCommand();
-                exitCode = root.Invoke(args);
+                using FileStream fs = File.OpenRead(ConfigPath);
+                config = JsonSerializer.Deserialize(fs, typeof(CommandProviderConfiguration), SourceGenerationConfigurationContext.Default) as CommandProviderConfiguration ?? new CommandProviderConfiguration();
             }
-            
+            else
+            {
+                config = new CommandProviderConfiguration();
+            }
+
+            var cp = new BundleCommandProvider(config, commandProviderLogger, bundleLogger);
+
+            RootCommand root = cp.GetRootCommand();
+            int exitCode = root.Invoke(args);
+
             appLogger.Information("Shutting down EasySign CLI at {DateTime} with exit code {ExitCode}", DateTime.Now, exitCode);
+
+            string data = JsonSerializer.Serialize(config, config.GetType(), SourceGenerationConfigurationContext.Default);
+            using (FileStream fs = File.OpenWrite(ConfigPath))
+            {
+                fs.Write(Encoding.UTF8.GetBytes(data));
+            }
 
             Log.CloseAndFlush();
             return exitCode;

@@ -17,8 +17,10 @@ namespace SAPTeam.EasySign.CommandLine
     /// Provides command definitions and handlers for the EasySign command line interface.
     /// </summary>
     /// <typeparam name="TBundle">The type of the bundle.</typeparam>
-    public abstract partial class CommandProvider<TBundle> : IDisposable
+    /// <typeparam name="TConfiguration">The type of the command provider configuration.</typeparam>
+    public abstract partial class CommandProvider<TBundle, TConfiguration>
         where TBundle : Bundle
+        where TConfiguration : CommandProviderConfiguration, new()
     {
         /// <summary>
         /// Gets or sets the logger to use for logging.
@@ -26,39 +28,23 @@ namespace SAPTeam.EasySign.CommandLine
         protected ILogger Logger { get; set; }
 
         /// <summary>
-        /// Gets or sets the application directory.
-        /// </summary>
-        public string AppDirectory { get; set; }
-
-        /// <summary>
         /// Gets the application configurations.
         /// </summary>
-        public Configuration Configuration { get; }
+        public TConfiguration Configuration { get; }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CommandProvider{T}"/> class with the specified application directory and logger.
+        /// Initializes a new instance of the <see cref="CommandProvider{TBundle, TConfiguration}"/> class.
         /// </summary>
-        /// <param name="appDirectory">
-        /// The application directory where configuration files are stored.
+        /// <param name="configuration">
+        /// The configuration for the command provider. If null, a default configuration will be used.
         /// </param>
         /// <param name="logger">
         /// The logger to use for logging. If null, a default null logger will be used.
         /// </param>
         /// <exception cref="ArgumentNullException"></exception>
-        protected CommandProvider(string appDirectory, ILogger? logger)
+        protected CommandProvider(TConfiguration? configuration, ILogger? logger)
         {
-            AppDirectory = appDirectory ?? throw new ArgumentNullException(nameof(appDirectory));
-
-            if (File.Exists(Path.Combine(AppDirectory, "config.json")))
-            {
-                using var fs = File.OpenRead(Path.Combine(AppDirectory, "config.json"));
-                Configuration = JsonSerializer.Deserialize(fs, typeof(Configuration), SourceGenerationConfigurationContext.Default) as Configuration ?? new();
-            }
-            else
-            {
-                Configuration = new();
-            }
-
+            Configuration = configuration ?? new();
             Logger = logger ?? NullLogger.Instance;
         }
 
@@ -162,6 +148,8 @@ namespace SAPTeam.EasySign.CommandLine
                 Option<bool> selfSignOpt = new Option<bool>("--self-sign", "Sign with self-signed certificate");
                 selfSignOpt.AddAlias("-s");
 
+                Option<bool> skipVerifyOpt = new Option<bool>("--skip-verification", "Skip verification of the certificate");
+
                 Command command = new Command("sign", "Sign bundle with certificate")
                     {
                         BundlePath,
@@ -169,9 +157,10 @@ namespace SAPTeam.EasySign.CommandLine
                         pfxPassOpt,
                         pfxNoPassOpt,
                         selfSignOpt,
+                        skipVerifyOpt,
                     };
 
-                command.SetHandler((bundlePath, pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt, selfSign) =>
+                command.SetHandler((bundlePath, pfxFilePath, pfxFilePassword, pfxNoPasswordPrompt, selfSign, skipVerify) =>
                 {
                     InitializeBundle(bundlePath);
 
@@ -201,27 +190,16 @@ namespace SAPTeam.EasySign.CommandLine
 
                         if (string.IsNullOrEmpty(selectedCert) || selectedCert == "Issue New Certificate")
                         {
-                            var subject = CertificateUtilities.GetSubjectNameFromUser();
-                            var issuedCert = CertificateUtilities.IssueCertificate(subject, rootCA);
+                            var subject = CertificateUtilities.GetSubjectFromUser();
+                            var issuedCert = CertificateUtilities.IssueCertificate(subject.ToString(), rootCA);
 
-                            var certFileName = $"{issuedCert.GetNameInfo(X509NameType.SimpleName, false).Replace(" ", "_")}-{issuedCert.GetSerialNumberString()[^6]}.pfx";
-                            var certFilePath = Path.Combine(AppDirectory, "certs", certFileName);
+                            Configuration.AddCertificate(CertificateStore.IssuedCertificates, issuedCert, subject.CommonName);
 
-                            Directory.CreateDirectory(Path.Combine(AppDirectory, "certs"));
-
-                            using (var fs = File.Create(certFilePath))
-                            {
-                                fs.Write(issuedCert.Export(X509ContentType.Pfx));
-                            }
-
-                            Configuration.IssuedCertificates.Add(subject, certFileName);
                             certs = new X509Certificate2Collection(issuedCert);
                         }
                         else
                         {
-                            certs = [];
-                            var certFilePath = Path.Combine(AppDirectory, "certs", Configuration.IssuedCertificates[selectedCert]);
-                            certs.AddRange(CertificateUtilities.ImportPFX(certFilePath));
+                            certs = [Configuration.LoadCertificate(CertificateStore.IssuedCertificates, selectedCert)];
                         }
                     }
                     else
@@ -257,8 +235,8 @@ namespace SAPTeam.EasySign.CommandLine
                         collection = new(selection.Select(x => mapping[x]).ToArray());
                     }
 
-                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunSign(ctx, collection));
-                }, BundlePath, pfxOpt, pfxPassOpt, pfxNoPassOpt, selfSignOpt);
+                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunSign(ctx, collection, skipVerify));
+                }, BundlePath, pfxOpt, pfxPassOpt, pfxNoPassOpt, selfSignOpt, skipVerifyOpt);
 
                 return command;
             }
@@ -297,9 +275,13 @@ namespace SAPTeam.EasySign.CommandLine
         {
             get
             {
+                var forceOpt = new Option<bool>("--force", "Generate new self-signed root CA even if one already exists");
+                forceOpt.AddAlias("-f");
+
                 var cnOption = new Option<string>(
                     aliases: ["--commonName", "-cn"],
-                    description: "Common Name for the certificate (e.g., example.com)");
+                    description: "Common Name for the certificate (e.g., example.com)\n" +
+                                 "If not specified, the user will be prompted for input.");
 
                 var emailOption = new Option<string>(
                     aliases: ["--email", "-e"],
@@ -327,6 +309,7 @@ namespace SAPTeam.EasySign.CommandLine
 
                 var command = new Command("self-sign", "Generate self-signed root CA")
                 {
+                    forceOpt,
                     cnOption,
                     emailOption,
                     orgOption,
@@ -336,7 +319,125 @@ namespace SAPTeam.EasySign.CommandLine
                     countryOption,
                 };
 
-                command.SetHandler(RunSelfSign, cnOption, emailOption, orgOption, ouOption, locOption, stateOption, countryOption);
+                command.SetHandler(RunSelfSign, forceOpt, cnOption, emailOption, orgOption, ouOption, locOption, stateOption, countryOption);
+
+                return command;
+            }
+        }
+
+        /// <summary>
+        /// Gets the command for managing trusted root CAs and intermediate CAs.
+        /// </summary>
+        public Command Trust
+        {
+            get
+            {
+                var caPathArg = new Argument<string>("path", "Path to the certificate file in PEM or DER format")
+                {
+                    Arity = ArgumentArity.ExactlyOne,
+                };
+
+                var interOpt = new Option<bool>("--intermediate", "Run command for Intermediate CA");
+                interOpt.AddAlias("-i");
+
+                Command addCmd = new Command("add", "Add trusted root CA or intermediate CA certificate")
+                {
+                    caPathArg,
+                    interOpt,
+                };
+
+                addCmd.SetHandler((path, intermediate) =>
+                {
+                    if (!File.Exists(path))
+                    {
+                        AnsiConsole.MarkupLine($"[red]Certificate file not found: {path}[/]");
+                        return;
+                    }
+
+                    var certificate = CertificateUtilities.Import(path);
+                    CertificateUtilities.DisplayCertificate(certificate);
+
+                    var modifier = intermediate ? "Intermediate" : "Trusted Root";
+                    var store = intermediate ? CertificateStore.IntermediateCA : CertificateStore.TrustedRootCA;
+
+                    var id = Configuration.AddCertificate(store, certificate);
+                    AnsiConsole.MarkupLine($"[green] {modifier} CA certificate added with ID: {id}[/]");
+                }, caPathArg, interOpt);
+
+                var verboseOpt = new Option<bool>("--verbose", "Show detailed information about the certificate");
+                verboseOpt.AddAlias("-v");
+
+                var listCmd = new Command("list", "List trusted root CA and intermediate CA certificates")
+                {
+                    interOpt,
+                    verboseOpt,
+                };
+
+                listCmd.SetHandler((intermediate, verbose) =>
+                {
+                    string modifier = intermediate ? "Intermediate" : "Trusted Root";
+                    var store = intermediate ? CertificateStore.IntermediateCA : CertificateStore.TrustedRootCA;
+                    var target = intermediate ? Configuration.IntermediateCA : Configuration.TrustedRootCA;
+
+                    X509Certificate2Collection certificates = [];
+                    AnsiConsole.WriteLine($"{modifier} CA certificates:");
+                    foreach (var cert in target)
+                    {
+                        var certificate = Configuration.LoadCertificate(store, cert.Key);
+                        var subject = new CertificateSubject(certificate);
+                        var isProtected = Configuration.IsProtected(cert.Key);
+
+                        AnsiConsole.MarkupLine($"[{(isProtected ? Color.Green : Color.White)}]   {cert.Key}{(isProtected ? " (Protected)" : "")}[/]");
+
+                        certificates.Add(certificate);
+                    }
+
+                    if (verbose)
+                    {
+                        AnsiConsole.WriteLine();
+                        CertificateUtilities.DisplayCertificate(certificates.ToArray());
+                    }
+
+                }, interOpt, verboseOpt);
+
+                var idArg = new Argument<string>("ID", "ID of the certificate")
+                {
+                    Arity = ArgumentArity.ExactlyOne,
+                };
+
+                var removeCmd = new Command("remove", "Remove trusted root CA or intermediate CA certificate")
+                {
+                    idArg,
+                    interOpt,
+                };
+
+                removeCmd.SetHandler((id, intermediate) =>
+                {
+                    var modifier = intermediate ? "Intermediate" : "Trusted Root";
+                    var store = intermediate ? CertificateStore.IntermediateCA : CertificateStore.TrustedRootCA;
+
+                    if (Configuration.IsProtected(id))
+                    {
+                        AnsiConsole.MarkupLine($"[red]This ID is protected and cannot be removed[/]");
+                        return;
+                    }
+
+                    if (Configuration.RemoveCertificate(store, id))
+                    {
+                        AnsiConsole.MarkupLine($"[green]{modifier} CA certificate removed with ID: {id}[/]");
+                    }
+                    else
+                    {
+                        AnsiConsole.MarkupLine($"[red]{modifier} CA certificate with ID: {id} not found![/]");
+                    }
+                }, idArg, interOpt);
+
+                Command command = new Command("trust", "Manage trusted root CAs and intermediate CAs")
+                {
+                    addCmd,
+                    listCmd,
+                    removeCmd,
+                };
 
                 return command;
             }
@@ -345,6 +446,7 @@ namespace SAPTeam.EasySign.CommandLine
         /// <summary>
         /// Runs the self-sign command to create a self-signed root CA certificate.
         /// </summary>
+        /// <param name="force">A value indicating whether to force the creation of a new self-signed root CA certificate even if one already exists.</param>
         /// <param name="commonName">Common Name (CN) - required. if not specified, will prompt for user input.</param>
         /// <param name="email">Email (E) - optional.</param>
         /// <param name="organization">Organization (O) - optional.</param>
@@ -352,11 +454,11 @@ namespace SAPTeam.EasySign.CommandLine
         /// <param name="locality">Locality (L) - optional.</param>
         /// <param name="state">State or Province (ST) - optional.</param>
         /// <param name="country">Country (C) - optional.</param>
-        public virtual void RunSelfSign(string? commonName, string? email, string? organization, string? organizationalUnit, string? locality, string? state, string? country)
+        public virtual void RunSelfSign(bool force, string? commonName, string? email, string? organization, string? organizationalUnit, string? locality, string? state, string? country)
         {
             Logger.LogInformation("Running self-sign command");
 
-            if (GetSelfSigningRootCA() != null)
+            if (force || Configuration.SelfSignedRootCA != null)
             {
                 Logger.LogWarning("Root CA already exists");
                 AnsiConsole.MarkupLine("[red]Root CA already exists![/]");
@@ -368,7 +470,7 @@ namespace SAPTeam.EasySign.CommandLine
             if (string.IsNullOrEmpty(commonName))
             {
                 Logger.LogDebug("Getting subject name from user");
-                subject = CertificateUtilities.GetSubjectNameFromUser();
+                subject = CertificateUtilities.GetSubjectFromUser().ToString();
             }
             else
             {
@@ -385,20 +487,12 @@ namespace SAPTeam.EasySign.CommandLine
             var rootCA = CertificateUtilities.CreateSelfSignedCACertificate(subject);
             Logger.LogDebug("Root CA certificate issued with subject: {subject}", rootCA.Subject);
 
-            Logger.LogDebug("Exporting root CA certificate to PFX file");
-            using (FileStream fs = File.Create(Path.Combine(AppDirectory, $"rootCA.pfx")))
-            {
-                fs.Write(rootCA.Export(X509ContentType.Pfx));
-            }
+            Logger.LogDebug("Exporting root CA certificate to configuration");
+            Configuration.SelfSignedRootCA = rootCA.Export(X509ContentType.Pfx);
 
             Logger.LogDebug("Clearing issued certificates");
-
             Configuration.IssuedCertificates.Clear();
-            if (Directory.Exists(Path.Combine(AppDirectory, "certs")))
-            {
-                Directory.Delete(Path.Combine(AppDirectory, "certs"), true);
-            }
-
+            
             CertificateUtilities.DisplayCertificate(rootCA);
 
             Logger.LogInformation("Root CA created successfully");
@@ -413,40 +507,12 @@ namespace SAPTeam.EasySign.CommandLine
         /// </returns>
         protected X509Certificate2? GetSelfSigningRootCA()
         {
-            string rootCAPath = Path.Combine(AppDirectory, "rootCA.pfx");
-
-            if (File.Exists(rootCAPath))
+            if (Configuration.SelfSignedRootCA != null)
             {
-                X509Certificate2Collection collection = CertificateUtilities.ImportPFX(rootCAPath);
-
-                return collection.Single();
+                return CertificateUtilities.ImportPFX(Configuration.SelfSignedRootCA).Single();
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Writes the configuration to disk.
-        /// </summary>
-        public void WriteConfig()
-        {
-            string json = JsonSerializer.Serialize(Configuration, typeof(Configuration), SourceGenerationConfigurationContext.Default);
-            var buffer = Encoding.UTF8.GetBytes(json);
-
-            using (FileStream fs = File.OpenWrite(Path.Combine(AppDirectory, "config.json")))
-            {
-                fs.Write(buffer);
-            }
-        }
-
-        /// <inheritdoc/>
-        public void Dispose()
-        {
-            WriteConfig();
-
-            Bundle = null;
-
-            GC.SuppressFinalize(this);
         }
     }
 }
