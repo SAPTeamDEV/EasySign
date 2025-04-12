@@ -91,6 +91,49 @@ namespace SAPTeam.EasySign.CommandLine
         }
 
         /// <summary>
+        /// Imports a PEM or DER encoded certificate from a file.
+        /// </summary>
+        /// <param name="filePath">
+        /// The path to the certificate file.
+        /// </param>
+        /// <returns>
+        /// An X509Certificate2 object representing the imported certificate.
+        /// </returns>
+        public static X509Certificate2 Import(string filePath)
+        {
+            byte[] buffer;
+            using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            {
+                buffer = new byte[fs.Length];
+                fs.Read(buffer, 0, buffer.Length);
+            }
+
+            return Import(buffer);
+        }
+
+        /// <summary>
+        /// Imports a PEM or DER encoded certificate from a byte array.
+        /// </summary>
+        /// <param name="data">
+        /// The byte array containing the certificate data.
+        /// </param>
+        /// <returns>
+        /// An X509Certificate2 object representing the imported certificate.
+        /// </returns>
+        public static X509Certificate2 Import(byte[] data)
+        {
+            X509Certificate2 certificate;
+
+#if NET9_0_OR_GREATER
+            certificate = X509CertificateLoader.LoadCertificate(data);
+#else
+            certificate = new X509Certificate2(data);
+#endif
+
+            return certificate;
+        }
+
+        /// <summary>
         /// Imports a PFX file and returns a collection of certificates.
         /// </summary>
         /// <param name="filePath">
