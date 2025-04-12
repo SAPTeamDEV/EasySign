@@ -91,6 +91,57 @@ namespace SAPTeam.EasySign.CommandLine
         }
 
         /// <summary>
+        /// Imports a PFX file and returns a collection of certificates.
+        /// </summary>
+        /// <param name="filePath">
+        /// The path to the PFX file.
+        /// </param>
+        /// <param name="password">
+        /// The password for the PFX file. If null, no password is used.
+        /// </param>
+        /// <returns>
+        /// A collection of X509Certificate2 objects representing the certificates in the PFX file.
+        /// </returns>
+        public static X509Certificate2Collection ImportPFX(string filePath, string? password = null)
+        {
+            byte[] buffer;
+
+            using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            {
+                buffer = new byte[fs.Length];
+                fs.Read(buffer, 0, buffer.Length);
+            }
+
+            return ImportPFX(buffer, password);
+        }
+
+        /// <summary>
+        /// Imports a PFX file from a byte array and returns a collection of certificates.
+        /// </summary>
+        /// <param name="data">
+        /// The byte array containing the PFX data.
+        /// </param>
+        /// <param name="password">
+        /// The password for the PFX file. If null, no password is used.
+        /// </param>
+        /// <returns>
+        /// A collection of X509Certificate2 objects representing the certificates in the PFX data.
+        /// </returns>
+        public static X509Certificate2Collection ImportPFX(byte[] data, string? password = null)
+        {
+            X509Certificate2Collection collection = new X509Certificate2Collection();
+
+#if NET9_0_OR_GREATER
+            collection.AddRange(X509CertificateLoader.LoadPkcs12Collection(data, password, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable));
+#else
+            collection.Import(data, password, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
+#endif
+
+            return collection;
+        }
+            
+
+        /// <summary>
         /// Prompts the user for certificate subject information and generates a standardized subject name.
         /// </summary>
         /// <returns>
@@ -187,12 +238,7 @@ namespace SAPTeam.EasySign.CommandLine
 
             string pfpass = !string.IsNullOrEmpty(pfxFilePassword) ? pfxFilePassword : !pfxNoPasswordPrompt ? Utilities.SecurePrompt("Enter PFX File password (if needed): ") : "";
 
-#if NET9_0_OR_GREATER
-            X509Certificate2Collection tempCollection = X509CertificateLoader.LoadPkcs12CollectionFromFile(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
-#else
-            X509Certificate2Collection tempCollection = [];
-            tempCollection.Import(pfxFilePath, pfpass, X509KeyStorageFlags.EphemeralKeySet);
-#endif
+            X509Certificate2Collection tempCollection = ImportPFX(pfxFilePath, pfpass);
 
             IEnumerable<X509Certificate2> cond = tempCollection.Where(x => x.HasPrivateKey);
             if (cond.Any())
@@ -236,11 +282,7 @@ namespace SAPTeam.EasySign.CommandLine
                                                           DateTimeOffset.UtcNow.AddYears(100));
 
                 // Export and re-import to mark the key as exportable (if needed for further signing).
-#if NET9_0_OR_GREATER
-                var cert = X509CertificateLoader.LoadPkcs12(rootCert.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
-#else
-                var cert = new X509Certificate2(rootCert.Export(X509ContentType.Pfx), "", X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
-#endif
+                var cert = ImportPFX(rootCert.Export(X509ContentType.Pfx)).Single();
 
                 return cert;
             }

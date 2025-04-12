@@ -221,11 +221,7 @@ namespace SAPTeam.EasySign.CommandLine
                         {
                             certs = [];
                             var certFilePath = Path.Combine(AppDirectory, "certs", Configuration.IssuedCertificates[selectedCert]);
-#if NET9_0_OR_GREATER
-                            certs.AddRange(X509CertificateLoader.LoadPkcs12CollectionFromFile(certFilePath, null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable));
-#else
-                            certs.Import(certFilePath, null, X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
-#endif
+                            certs.AddRange(CertificateUtilities.ImportPFX(certFilePath));
                         }
                     }
                     else
@@ -421,14 +417,9 @@ namespace SAPTeam.EasySign.CommandLine
 
             if (File.Exists(rootCAPath))
             {
-#if NET9_0_OR_GREATER
-                X509Certificate2Collection collection = X509CertificateLoader.LoadPkcs12CollectionFromFile(rootCAPath, null, X509KeyStorageFlags.EphemeralKeySet);
-#else
-                X509Certificate2Collection collection = new();
-                collection.Import(rootCAPath, null, X509KeyStorageFlags.EphemeralKeySet);
-#endif
+                X509Certificate2Collection collection = CertificateUtilities.ImportPFX(rootCAPath);
 
-                return collection.First();
+                return collection.Single();
             }
 
             return null;
