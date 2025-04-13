@@ -93,6 +93,8 @@ namespace SAPTeam.EasySign.CommandLine
                 Option<bool> continueOpt = new Option<bool>("--continue", "Continue adding files if an error occurs");
                 continueOpt.AddAlias("-c");
 
+                Option<bool> forceOpt = new Option<bool>("--force", "Add files even if the bundle is signed");
+
                 Command command = new Command("add", "Create new bundle or update an existing one")
                 {
                     BundlePath,
@@ -102,11 +104,11 @@ namespace SAPTeam.EasySign.CommandLine
                     continueOpt,
                 };
 
-                command.SetHandler((bundlePath, files, replace, recursive, continueOnError) =>
+                command.SetHandler((bundlePath, files, replace, recursive, continueOnError, force) =>
                 {
                     InitializeBundle(bundlePath);
-                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunAdd(ctx, files, replace, recursive, continueOnError));
-                }, BundlePath, filesArg, replaceOpt, recursiveOpt, continueOpt);
+                    Utilities.RunInStatusContext("[yellow]Preparing[/]", ctx => RunAdd(ctx, files, replace, recursive, continueOnError, force));
+                }, BundlePath, filesArg, replaceOpt, recursiveOpt, continueOpt, forceOpt);
 
                 return command;
             }

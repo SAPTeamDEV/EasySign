@@ -4,8 +4,6 @@ using Microsoft.Extensions.Logging;
 
 using Spectre.Console;
 
-using static System.Net.Mime.MediaTypeNames;
-
 namespace SAPTeam.EasySign.CommandLine
 {
     public abstract partial class CommandProvider<TBundle, TConfiguration>
@@ -79,7 +77,10 @@ namespace SAPTeam.EasySign.CommandLine
         /// <param name="continueOnError">
         /// A value indicating whether to continue adding files if an error occurs.
         /// </param>
-        protected virtual void RunAdd(StatusContext statusContext, string[] files, bool replace, bool recursive, bool continueOnError)
+        /// <param name="force">
+        /// A value indicating whether to force the addition of files to a signed bundle.
+        /// </param>
+        protected virtual void RunAdd(StatusContext statusContext, string[] files, bool replace, bool recursive, bool continueOnError, bool force)
         {
             Logger.LogInformation("Running add command");
 
@@ -94,6 +95,13 @@ namespace SAPTeam.EasySign.CommandLine
                 statusContext.Status("[yellow]Loading Bundle[/]");
                 
                 if (!LoadBundle(false)) return;
+
+                if (!force && Bundle.Signatures.Entries.Count > 0)
+                {
+                    Logger.LogError("Bundle is already signed, cannot add files");
+                    AnsiConsole.MarkupLine($"[{Color.Red}]Cannot add files to a signed bundle[/]");
+                    return;
+                }
             }
 
             statusContext.Status("[yellow]Adding Files[/]");
