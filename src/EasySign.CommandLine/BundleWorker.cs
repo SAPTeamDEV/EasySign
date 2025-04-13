@@ -525,10 +525,48 @@ namespace SAPTeam.EasySign.CommandLine
         /// <summary>
         /// Verifies the validity of a certificate.
         /// </summary>
-        /// <param name="certificate">The certificate to verify.</param>
-        /// <param name="ignoreTime">A value indicating whether to ignore time validity checks.</param>
-        /// <returns>True if the certificate is valid; otherwise, false.</returns>
+        /// <remarks>
+        /// This method has console output. For internal usages, call <see cref="VerifyCertificateImpl(X509Certificate2, bool, out X509ChainStatus[])"/> instead.
+        /// </remarks>
+        /// <param name="certificate">
+        /// The certificate to verify.
+        /// </param>
+        /// <param name="ignoreTime">
+        /// A value indicating whether to ignore time validity checks.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> if the certificate is valid; otherwise, <see langword="false"/>.
+        /// </returns>
         protected bool VerifyCertificate(X509Certificate2 certificate, bool ignoreTime)
+        {
+            bool result = VerifyCertificateImpl(certificate, ignoreTime, out X509ChainStatus[] verificationStatuses);
+
+            if (!result)
+            {
+                Utilities.EnumerateStatuses(verificationStatuses);
+            }
+
+            AnsiConsole.MarkupLine($"[{(result ? Color.Green3 : Color.Red)}] Certificate Verification {(result ? "Successful" : "Failed")}[/]");
+            return result;
+        }
+
+        /// <summary>
+        /// Verifies the certificate using the configured trust stores.
+        /// </summary>
+        /// <param name="certificate">
+        /// The certificate to verify.
+        /// </param>
+        /// <param name="ignoreTime">
+        /// A value indicating whether to ignore time validity checks.
+        /// </param>
+        /// <param name="chainStatuses">
+        /// The chain statuses of the verification.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> if the certificate is valid; otherwise, <see langword="false"/>.
+        /// </returns>
+        /// <exception cref="ApplicationException"></exception>
+        protected bool VerifyCertificateImpl(X509Certificate2 certificate, bool ignoreTime, out X509ChainStatus[] chainStatuses)
         {
             if (Bundle == null)
             {
@@ -538,28 +576,10 @@ namespace SAPTeam.EasySign.CommandLine
             List<bool> verificationResults = [];
             List<X509ChainStatus[]> verificationStatuses = [];
 
-            X509Certificate2? rootCA;
-            if ((rootCA = GetSelfSigningRootCA()) != null)
+            if (Configuration.Settings["selfsign.enable"] && Configuration.SelfSignedRootCA != null)
             {
-                Logger.LogDebug("Verifying certificate {cert} with self-signing root CA", certificate);
-
-                X509ChainPolicy selfSignPolicy = new X509ChainPolicy();
-                selfSignPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-                selfSignPolicy.CustomTrustStore.Add(rootCA);
-                selfSignPolicy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
-                selfSignPolicy.RevocationMode = X509RevocationMode.NoCheck;
-
-                bool selfSignVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] selfSignChainStatuses, policy: selfSignPolicy);
-                Logger.LogInformation("Certificate verification with self-signing root CA for {cert}: {result}", certificate, selfSignVerification);
-                
-                verificationResults.Add(selfSignVerification);
-                verificationStatuses.Add(selfSignChainStatuses);
-
-                if (selfSignVerification)
-                {
-                    AnsiConsole.MarkupLine($"[{Color.Green}] Certificate Verification with Self-Signing Root CA Successful[/]");
-                    return true;
-                }
+                verificationResults.Add(SelfSignVerify(certificate, out X509ChainStatus[] selfSigningStatuses));
+                verificationStatuses.Add(selfSigningStatuses);
             }
 
             X509ChainPolicy policy = new();
@@ -570,12 +590,17 @@ namespace SAPTeam.EasySign.CommandLine
                 policy.VerificationFlags |= X509VerificationFlags.IgnoreCtlNotTimeValid;
             }
 
-            Logger.LogDebug("Verifying certificate {cert} with system trust store", certificate);
-            bool defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] defaultChainStatuses, policy);
-            Logger.LogInformation("Certificate verification with system trust store for {cert}: {result}", certificate, defaultVerification);
+            if (!verificationResults.Any(x => x))
+            {
+                Logger.LogDebug("Verifying certificate {cert} with system trust store", certificate);
 
-            verificationResults.Add(defaultVerification);
-            verificationStatuses.Add(defaultChainStatuses);
+                bool defaultVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] defaultChainStatuses, policy);
+
+                Logger.LogInformation("Certificate verification with system trust store for {cert}: {result}", certificate, defaultVerification);
+
+                verificationResults.Add(defaultVerification);
+                verificationStatuses.Add(defaultChainStatuses);
+            }
 
             if (Configuration.Settings["trust.enable"] && !verificationResults.Any(x => x) && Configuration.TrustedRootCA.Count > 0)
             {
@@ -584,27 +609,48 @@ namespace SAPTeam.EasySign.CommandLine
 
                 Logger.LogDebug("Verifying certificate {cert} with custom trust store", certificate);
                 bool customVerification = Bundle.VerifyCertificate(certificate, out X509ChainStatus[] customChainStatuses, policy);
-                Logger.LogInformation("Certificate verification with custom trust store for {cert}: {result}", certificate, defaultVerification);
+                Logger.LogInformation("Certificate verification with custom trust store for {cert}: {result}", certificate, customVerification);
 
                 verificationResults.Add(customVerification);
                 verificationStatuses.Add(customChainStatuses);
             }
 
-            if (!verificationResults.Any(x => x))
+            chainStatuses = verificationStatuses.Aggregate((prev, next) =>
             {
-                var statuses = verificationStatuses.Aggregate((prev, next) =>
-                {
-                    return prev.Intersect(next).ToArray();
-                });
+                return prev.Intersect(next).ToArray();
+            });
 
-                Utilities.EnumerateStatuses(statuses);
+            return verificationResults.Any(x => x);
+        }
 
-                AnsiConsole.MarkupLine($"[red] Certificate Verification Failed[/]");
-                return false;
+        private bool SelfSignVerify(X509Certificate2 certificate, out X509ChainStatus[] chainStatuses)
+        {
+            if (Bundle == null)
+            {
+                throw new ApplicationException("Bundle is not initialized");
             }
 
-            AnsiConsole.MarkupLine($"[green] Certificate Verification Successful[/]");
-            return true;
+            chainStatuses = [];
+            X509Certificate2? rootCA;
+
+            if ((rootCA = GetSelfSigningRootCA()) != null)
+            {
+                Logger.LogDebug("Verifying certificate {cert} with self-signing root CA", certificate);
+
+                X509ChainPolicy selfSignPolicy = new X509ChainPolicy();
+                selfSignPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                selfSignPolicy.CustomTrustStore.Add(rootCA);
+                selfSignPolicy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
+                selfSignPolicy.RevocationMode = X509RevocationMode.NoCheck;
+
+                bool selfSignVerification = Bundle.VerifyCertificate(certificate, out chainStatuses, policy: selfSignPolicy);
+                Logger.LogInformation("Certificate verification with self-signing root CA for {cert}: {result}", certificate, selfSignVerification);
+
+                return selfSignVerification;
+            }
+
+            Logger.LogDebug("Self-signing root CA not found");
+            return false;
         }
     }
 }
