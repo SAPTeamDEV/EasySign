@@ -49,7 +49,7 @@ namespace SAPTeam.EasySign.CommandLine
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to load bundle from file: {BundlePath}", Bundle.BundlePath);
-                AnsiConsole.MarkupLine($"[{Color.Red}]Failed to load bundle from file: {Bundle.BundlePath}[/]");
+                AnsiConsole.MarkupLine($"[{Color.Red}]Failed to load file: {Bundle.BundlePath}[/]");
                 AnsiConsole.MarkupLine($"[{Color.Red}]Error:[/] {ex.GetType().Name}: {ex.Message}");
             }
 
@@ -194,12 +194,12 @@ namespace SAPTeam.EasySign.CommandLine
                 Bundle.Update();
 
                 Logger.LogInformation("Bundle saved successfully");
-                AnsiConsole.MarkupLine($"[green]Bundle file: {Bundle.BundlePath} Saved successfully[/]");
+                AnsiConsole.MarkupLine($"[green]File: {Bundle.BundlePath} Saved successfully[/]");
             }
             else
             {
                 Logger.LogInformation("No changes were made to the bundle");
-                AnsiConsole.MarkupLine("[yellow]No changes were made to the bundle[/]");
+                AnsiConsole.MarkupLine("[yellow]No changes were made to the file[/]");
             }
         }
 
@@ -354,7 +354,7 @@ namespace SAPTeam.EasySign.CommandLine
             Bundle.Update();
 
             Logger.LogInformation("Bundle saved successfully");
-            AnsiConsole.MarkupLine($"[green]Bundle file: {Bundle.BundlePath} Saved successfully[/]");
+            AnsiConsole.MarkupLine($"[green]File: {Bundle.BundlePath} Saved successfully[/]");
         }
 
         /// <summary>
@@ -362,7 +362,8 @@ namespace SAPTeam.EasySign.CommandLine
         /// </summary>
         /// <param name="statusContext">The status context for interacting with <see cref="AnsiConsole.Status"/>.</param>
         /// <param name="ignoreTime">A value indicating whether to ignore time validity checks for certificate verification.</param>
-        protected virtual void RunVerify(StatusContext statusContext, bool ignoreTime)
+        /// <returns><see langword="true"></see> if the verification was successful; otherwise, <see langword="false"></see></returns>
+        protected virtual bool RunVerify(StatusContext statusContext, bool ignoreTime)
         {
             Logger.LogInformation("Running verify command");
 
@@ -381,7 +382,7 @@ namespace SAPTeam.EasySign.CommandLine
 
             Logger.LogDebug("Loading bundle");
             statusContext.Status("[yellow]Loading Bundle[/]");
-            if (!LoadBundle()) return;
+            if (!LoadBundle()) return false;
 
             Logger.LogInformation("Starting certificate and signature verification");
             statusContext.Status("[yellow]Verification Phase 1: Certificates and signatures[/]");
@@ -425,12 +426,12 @@ namespace SAPTeam.EasySign.CommandLine
                 if (Bundle.Signatures.Entries.Count == 0)
                 {
                     Logger.LogWarning("Bundle is not signed");
-                    AnsiConsole.MarkupLine($"[red]This bundle is not signed[/]");
+                    AnsiConsole.MarkupLine($"[red]The file is not signed[/]");
                 }
 
                 Logger.LogWarning("No certificates were verified");
                 AnsiConsole.MarkupLine($"[red]Verification failed[/]");
-                return;
+                return false;
             }
 
             if (verifiedCerts == Bundle.Signatures.Entries.Count)
@@ -512,11 +513,13 @@ namespace SAPTeam.EasySign.CommandLine
             {
                 Logger.LogWarning("File verification failed");
                 AnsiConsole.MarkupLine($"[red]File Verification Failed[/]");
-                return;
+                return false;
             }
 
-            Logger.LogInformation("Bundle verification completed successfully");
-            AnsiConsole.MarkupLine("[green]Bundle Verification Completed Successfully[/]");
+            Logger.LogInformation("File verification completed successfully");
+            AnsiConsole.MarkupLine("[green]All Files Verified Successfully[/]");
+
+            return true;
         }
 
         /// <summary>
