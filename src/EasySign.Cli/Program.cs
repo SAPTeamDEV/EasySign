@@ -6,12 +6,13 @@ using System.Text;
 using Serilog;
 using Serilog.Extensions.Logging;
 using SAPTeam.EasySign.CommandLine;
+using SAPTeam.CommonTK;
 
 namespace SAPTeam.EasySign.Cli
 {
     internal class Program
     {
-        public static string AppDirectory => AppDomain.CurrentDomain.BaseDirectory;
+        public static string AppDirectory => Context.GetApplicationDataDirectory("EasySign");
 
         public static string ConfigPath => Path.Combine(AppDirectory, "config.json");
 
@@ -35,6 +36,11 @@ namespace SAPTeam.EasySign.Cli
 
             Microsoft.Extensions.Logging.ILogger commandProviderLogger = new SerilogLoggerFactory(Log.Logger.ForContext("Context", "CommandProvider"))
                 .CreateLogger("CommandProvider");
+
+            if (!Directory.Exists(AppDirectory))
+            {
+                Directory.CreateDirectory(AppDirectory);
+            }
 
             CommandProviderConfiguration config;
             if (File.Exists(ConfigPath))
