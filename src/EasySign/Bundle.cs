@@ -742,31 +742,11 @@ namespace SAPTeam.EasySign
 
             using (ZipArchive zip = GetZipArchive(ZipArchiveMode.Update))
             {
-                if (_pendingForRemove.Count > 0)
-                {
-                    Logger.LogDebug("Deleting pending files from the bundle");
-                }
-
-                ZipArchiveEntry? tempEntry;
-                foreach (string entryName in _pendingForRemove)
-                {
-                    if ((tempEntry = zip.GetEntry(entryName)) != null)
-                    {
-                        Logger.LogDebug("Deleting entry: {name}", entryName);
-                        tempEntry.Delete();
-                    }
-                    else
-                    {
-                        Logger.LogWarning("Entry {name} not found in the bundle", entryName);
-                    }
-                }
-
-                if (Updating != null)
-                {
-                    Logger.LogDebug("Invoking Updating event");
-                }
-
+                Logger.LogDebug("Invoking Updating event");
                 Updating?.Invoke(zip);
+                
+                Logger.LogDebug("Processing pending files");
+                ProcessPendingFiles(zip);
 
                 Logger.LogDebug("Writing manifest to the bundle");
                 byte[] manifestData = GetManifestData();
@@ -775,16 +755,28 @@ namespace SAPTeam.EasySign
                 Logger.LogDebug("Writing signatures to the bundle");
                 byte[] signatureData = Export(Signatures, SourceGenerationSignaturesContext.Default);
                 WriteEntry(zip, ".signatures.ec", signatureData);
+            }
+        }
 
-                if (_pendingForAdd.Count > 0)
+        private void ProcessPendingFiles(ZipArchive zip)
+        {
+            ZipArchiveEntry? tempEntry;
+            foreach (string entryName in _pendingForRemove)
+            {
+                if ((tempEntry = zip.GetEntry(entryName)) != null)
                 {
-                    Logger.LogDebug("Writing pending files to the bundle");
+                    Logger.LogDebug("Deleting entry: {name}", entryName);
+                    tempEntry.Delete();
                 }
+                else
+                {
+                    Logger.LogWarning("Entry {name} not found in the bundle", entryName);
+                }
+            }
 
-                foreach (KeyValuePair<string, byte[]> newFile in _pendingForAdd)
-                {
-                    WriteEntry(zip, newFile.Key, newFile.Value);
-                }
+            foreach (KeyValuePair<string, byte[]> newFile in _pendingForAdd)
+            {
+                WriteEntry(zip, newFile.Key, newFile.Value);
             }
         }
 
