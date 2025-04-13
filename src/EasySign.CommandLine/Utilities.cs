@@ -124,5 +124,29 @@ namespace SAPTeam.EasySign.CommandLine
                 AnsiConsole.MarkupLine($"[{Color.IndianRed}]   {status.StatusInformation}[/]");
             }
         }
+
+        /// <summary>
+        /// Parses a string to a boolean value.
+        /// </summary>
+        /// <param name="input">
+        /// The string to parse.
+        /// </param>
+        /// <returns>
+        /// <see cref="bool"/> representation of the input string.
+        /// </returns>
+        /// <exception cref="FormatException"></exception>
+        public static bool ParseToBool(string input)
+        {
+            if (int.TryParse(input, out int number))
+            {
+                return number == 1;
+            }
+            if (bool.TryParse(input, out bool boolean))
+            {
+                return boolean;
+            }
+
+            throw new FormatException($"Cannot convert '{input}' to a boolean.");
+        }
     }
 }

@@ -577,7 +577,7 @@ namespace SAPTeam.EasySign.CommandLine
             verificationResults.Add(defaultVerification);
             verificationStatuses.Add(defaultChainStatuses);
 
-            if (!verificationResults.Any(x => x) && Configuration.TrustedRootCA.Count > 0)
+            if (Configuration.Settings["trust.enable"] && !verificationResults.Any(x => x) && Configuration.TrustedRootCA.Count > 0)
             {
                 policy.TrustMode = X509ChainTrustMode.CustomRootTrust;
                 policy.CustomTrustStore.AddRange(Configuration.LoadCertificates(CertificateStore.TrustedRootCA));

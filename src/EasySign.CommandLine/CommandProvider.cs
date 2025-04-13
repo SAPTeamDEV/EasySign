@@ -169,10 +169,16 @@ namespace SAPTeam.EasySign.CommandLine
 
                     if (selfSign)
                     {
+                        if (!Configuration.Settings["selfsign.enable"])
+                        {
+                            AnsiConsole.MarkupLine("[red]Self-Signing feature is disabled[/]");
+                            return;
+                        }
+
                         X509Certificate2? rootCA = GetSelfSigningRootCA();
                         if (rootCA == null)
                         {
-                            AnsiConsole.MarkupLine("[red]Self-Signing Root CA not found![/]");
+                            AnsiConsole.MarkupLine("[red]Self-Signing Root CA not found[/]");
                             return;
                         }
 
@@ -432,12 +438,90 @@ namespace SAPTeam.EasySign.CommandLine
                     }
                 }, idArg, interOpt);
 
-                Command command = new Command("trust", "Manage trusted root CAs and intermediate CAs")
+                Command command = new Command("trust", "Manage trusted root CAs and intermediate CAs");
+
+                if (Configuration.Settings["trust.enable"])
                 {
-                    addCmd,
-                    listCmd,
-                    removeCmd,
+                    command.AddCommand(addCmd);
+                    command.AddCommand(listCmd);
+                    command.AddCommand(removeCmd);
+                }
+                else
+                {
+                    command.SetHandler(() =>
+                    {
+                        AnsiConsole.MarkupLine("[red]Custom trust store feature is disabled[/]");
+                        return;
+                    });
+                }
+
+                return command;
+            }
+        }
+
+        /// <summary>
+        /// Gets the command for managing configuration settings.
+        /// </summary>
+        public Command Config
+        {
+            get
+            {
+                var keyArg = new Argument<string>("key", "Key to set or get\n" +
+                    "if not specified, will list all keys")
+                {
+                    Arity = ArgumentArity.ZeroOrOne,
                 };
+
+                var valueArg = new Argument<string>("value", "Value to set\n" +
+                    "if not specified, will get the value of the key")
+                {
+                    Arity = ArgumentArity.ZeroOrOne,
+                };
+
+                var forceOpt = new Option<bool>("--force", "Set value even if it is not existing");
+                forceOpt.AddAlias("-f");
+
+                var command = new Command("config", "Get or set configuration values")
+                {
+                    keyArg,
+                    valueArg,
+                    forceOpt,
+                };
+
+                command.SetHandler((key, value, force) =>
+                {
+                    if (string.IsNullOrEmpty(value))
+                    {
+                        var items = string.IsNullOrEmpty(key) ? Configuration.Settings : Configuration.Settings.Where(x => x.Key.StartsWith(key));
+
+                        foreach (var item in items)
+                        {
+                            AnsiConsole.WriteLine($"{item.Key} = {item.Value}");
+                        }
+                    }
+                    else
+                    {
+                        if (!force && !Configuration.Settings.ContainsKey(key))
+                        {
+                            AnsiConsole.MarkupLine($"[red]Invalid key: {key}[/]");
+                            return;
+                        }
+
+                        bool bValue;
+                        try
+                        {
+                            bValue = Utilities.ParseToBool(value);
+                        }
+                        catch
+                        {
+                            AnsiConsole.MarkupLine($"[red]Invalid value: {value}[/]");
+                            return;
+                        }
+
+                        Configuration.Settings[key] = bValue;
+                        AnsiConsole.MarkupLine($"[green]{key} set to {Configuration.Settings[key]}[/]");
+                    }
+                }, keyArg, valueArg, forceOpt);
 
                 return command;
             }
@@ -456,6 +540,12 @@ namespace SAPTeam.EasySign.CommandLine
         /// <param name="country">Country (C) - optional.</param>
         public virtual void RunSelfSign(bool force, string? commonName, string? email, string? organization, string? organizationalUnit, string? locality, string? state, string? country)
         {
+            if (!Configuration.Settings["selfsign.enable"])
+            {
+                AnsiConsole.MarkupLine("[red]Self-Signing feature is disabled[/]");
+                return;
+            }
+
             Logger.LogInformation("Running self-sign command");
 
             if (force || Configuration.SelfSignedRootCA != null)

@@ -14,6 +14,15 @@ namespace SAPTeam.EasySign.CommandLine
     public class CommandProviderConfiguration
     {
         /// <summary>
+        /// Gets or sets the settings for the command provider.
+        /// </summary>
+        public Dictionary<string, bool> Settings { get; set; } = new Dictionary<string, bool>
+        {
+            ["trust.enable"] = true,
+            ["selfsign.enable"] = true,
+        };
+
+        /// <summary>
         /// Gets or sets the list of prefixes that should be protected from modification.
         /// </summary>
         protected string[] ProtectedPrefixes { get; set; } = [];

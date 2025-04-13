@@ -56,7 +56,13 @@ namespace SAPTeam.EasySign.Cli
             appLogger.Information("Shutting down EasySign CLI at {DateTime} with exit code {ExitCode}", DateTime.Now, exitCode);
 
             string data = JsonSerializer.Serialize(config, config.GetType(), SourceGenerationConfigurationContext.Default);
-            using (FileStream fs = File.OpenWrite(ConfigPath))
+
+            if(File.Exists(ConfigPath))
+            {
+                File.Delete(ConfigPath);
+            }
+
+            using (FileStream fs = File.Create(ConfigPath))
             {
                 fs.Write(Encoding.UTF8.GetBytes(data));
             }

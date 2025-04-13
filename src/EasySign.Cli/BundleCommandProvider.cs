@@ -30,9 +30,18 @@ namespace SAPTeam.EasySign.Cli
                 Info,
                 Sign,
                 Verify,
-                SelfSign,
-                Trust,
+                Config,
             };
+
+            if (Configuration.Settings["selfsign.enable"])
+            {
+                root.Add(SelfSign);
+            }
+
+            if (Configuration.Settings["trust.enable"])
+            {
+                root.Add(Trust);
+            }
 
             return root;
         }
