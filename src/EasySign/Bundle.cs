@@ -447,18 +447,13 @@ namespace SAPTeam.EasySign
             byte[] certData = certificate.Export(X509ContentType.Cert);
             string name = certificate.GetCertHashString();
 
-            Logger.LogDebug("Adding entry name: {name} to protected entry names", name);
-            ProtectedEntryNames.Add(name);
-
             Logger.LogDebug("Signing manifest");
             byte[] manifestData = GetManifestData();
             byte[] signature = privateKey.SignData(manifestData, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
-            Logger.LogDebug("Pending file: {name} for adding to the bundle", name);
-            _pendingForAdd[name] = certData;
-
             Logger.LogDebug("Adding signature for certificate: {name} to signatures", name);
             Signatures.Entries[name] = signature;
+            Signatures.Certificates[name] = certData;
 
             Logger.LogInformation("Bundle signed with certificate: {name}", certificate.Subject);
         }
@@ -579,7 +574,7 @@ namespace SAPTeam.EasySign
 
             Logger.LogInformation("Getting certificate with hash: {hash}", certificateHash);
 
-            byte[] certData = GetBytes(certificateHash, ReadSource.Bundle);
+            byte[] certData = Signatures.Certificates[certificateHash];
 
 #if NET9_0_OR_GREATER
             X509Certificate2 certificate = X509CertificateLoader.LoadCertificate(certData);
