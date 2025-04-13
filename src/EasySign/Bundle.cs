@@ -53,7 +53,7 @@ namespace SAPTeam.EasySign
         /// The entries with these names are only resolved with <see cref="ReadSource.Bundle"/>.
         /// This feature is only designed to prevent accidental modification of important files.
         /// </remarks>
-        protected List<string> ProtectedEntryNames { get; private set; } =
+        protected HashSet<string> ProtectedEntryNames { get; private set; } =
         [
             ".manifest.ec",
             ".signatures.ec",
@@ -330,7 +330,7 @@ namespace SAPTeam.EasySign
                 Logger.LogDebug("Parsing manifest");
                 Manifest = JsonSerializer.Deserialize(entry.Open(), typeof(Manifest), SourceGenerationManifestContext.Default) as Manifest ?? new Manifest();
 
-                List<string> protectedEntries = ProtectedEntryNames.Union(Manifest.ProtectedEntryNames).ToList();
+                HashSet<string> protectedEntries = ProtectedEntryNames.Union(Manifest.ProtectedEntryNames).ToHashSet();
                 ProtectedEntryNames = protectedEntries;
                 Manifest.ProtectedEntryNames = protectedEntries;
             }
@@ -446,6 +446,9 @@ namespace SAPTeam.EasySign
             Logger.LogDebug("Exporting certificate");
             byte[] certData = certificate.Export(X509ContentType.Cert);
             string name = certificate.GetCertHashString();
+
+            Logger.LogDebug("Adding entry name: {name} to protected entry names", name);
+            ProtectedEntryNames.Add(name);
 
             Logger.LogDebug("Signing manifest");
             byte[] manifestData = GetManifestData();
@@ -785,6 +788,7 @@ namespace SAPTeam.EasySign
         protected virtual byte[] GetManifestData()
         {
             Manifest.UpdatedBy = GetType().FullName;
+            Manifest.ProtectedEntryNames = ProtectedEntryNames.Union(Manifest.ProtectedEntryNames).ToHashSet();
 
             return Export(Manifest, SourceGenerationManifestContext.Default);
         }

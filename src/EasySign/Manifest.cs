@@ -36,7 +36,7 @@ namespace SAPTeam.EasySign
         /// <summary>
         /// Gets or sets the list of entry names that should be protected by the bundle from accidental modifications.
         /// </summary>
-        public List<string> ProtectedEntryNames { get; set; } = [];
+        public HashSet<string> ProtectedEntryNames { get; set; } = [];
 
         /// <summary>
         /// Gets the entries as a thread-safe concurrent dictionary.
