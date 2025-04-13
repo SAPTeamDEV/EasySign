@@ -46,6 +46,11 @@ namespace SAPTeam.EasySign.CommandLine
 
                 return true;
             }
+            catch (FileNotFoundException fnfex)
+            {
+                Logger.LogError(fnfex, "Bundle file not found: {BundlePath}", Bundle.BundlePath);
+                AnsiConsole.MarkupLine($"[red]File not found: {Bundle.BundlePath}[/]");
+            }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to load bundle from file: {BundlePath}", Bundle.BundlePath);
