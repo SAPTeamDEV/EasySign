@@ -55,11 +55,11 @@ namespace SAPTeam.EasySign.Cli
                     config = JsonSerializer.Deserialize(fs, typeof(CommandProviderConfiguration), SourceGenerationConfigurationContext.Default) as CommandProviderConfiguration ?? new CommandProviderConfiguration();
                     fs.Dispose();
                 }
-                catch
+                catch (Exception ex)
                 {
                     fs.Dispose();
 
-                    appLogger.Warning("Failed to load configuration from {ConfigPath}", ConfigPath);
+                    appLogger.Warning(ex, "Failed to load configuration from {ConfigPath}", ConfigPath);
                     config = null;
 
                     appLogger.Information("Creating backup of the old configuration file at {ConfigPath}.old", ConfigPath + ".old");
