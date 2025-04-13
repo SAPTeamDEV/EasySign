@@ -193,9 +193,10 @@ namespace SAPTeam.EasySign.CommandLine
                 }
             });
 
+            AnsiConsole.WriteLine();
+
             if (errorOccurred)
             {
-                AnsiConsole.WriteLine();
                 AnsiConsole.MarkupLine("[orange]One or more errors occurred, check the console output or logs for more information[/]");
             }
 
@@ -397,6 +398,13 @@ namespace SAPTeam.EasySign.CommandLine
             statusContext.Status("[yellow]Loading Bundle[/]");
             if (!LoadBundle()) return false;
 
+            if (Bundle.Signatures.Entries.Count == 0)
+            {
+                Logger.LogError("Bundle is not signed");
+                AnsiConsole.MarkupLine($"[red]The file is not signed[/]");
+                return false;
+            }
+
             Logger.LogInformation("Starting certificate and signature verification");
             statusContext.Status("[yellow]Verification Phase 1: Certificates and signatures[/]");
 
@@ -436,12 +444,6 @@ namespace SAPTeam.EasySign.CommandLine
 
             if (verifiedCerts == 0)
             {
-                if (Bundle.Signatures.Entries.Count == 0)
-                {
-                    Logger.LogWarning("Bundle is not signed");
-                    AnsiConsole.MarkupLine($"[red]The file is not signed[/]");
-                }
-
                 Logger.LogWarning("No certificates were verified");
                 AnsiConsole.MarkupLine($"[red]Verification failed[/]");
                 return false;
