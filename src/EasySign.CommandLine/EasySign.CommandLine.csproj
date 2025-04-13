@@ -28,6 +28,21 @@
     <PackageReference Include="Spectre.Console" Version="0.49.1" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="SAPTeamCertificates.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>SAPTeamCertificates.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="SAPTeamCertificates.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>SAPTeamCertificates.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
   
   <Import Project="$(RepoRootPath)\build\Library.props" />
 

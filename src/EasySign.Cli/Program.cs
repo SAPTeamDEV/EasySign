@@ -47,6 +47,7 @@ namespace SAPTeam.EasySign.Cli
                 config = new CommandProviderConfiguration();
             }
 
+            config.AddSAPTeamCertificates();
             var cp = new BundleCommandProvider(config, commandProviderLogger, bundleLogger);
 
             RootCommand root = cp.GetRootCommand();

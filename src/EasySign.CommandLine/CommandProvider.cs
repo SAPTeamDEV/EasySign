@@ -418,7 +418,7 @@ namespace SAPTeam.EasySign.CommandLine
 
                     if (Configuration.IsProtected(id))
                     {
-                        AnsiConsole.MarkupLine($"[red]This ID is protected and cannot be removed[/]");
+                        AnsiConsole.MarkupLine($"[red]This ID is protected and cannot be modified[/]");
                         return;
                     }
 

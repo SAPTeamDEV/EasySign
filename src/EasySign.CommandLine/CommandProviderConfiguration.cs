@@ -16,7 +16,7 @@ namespace SAPTeam.EasySign.CommandLine
         /// <summary>
         /// Gets or sets the list of prefixes that should be protected from modification.
         /// </summary>
-        protected string[] ProtectedPrefixes { get; } = [];
+        protected string[] ProtectedPrefixes { get; set; } = [];
 
         /// <summary>
         /// Gets or sets the list of trusted root CA certificates.
@@ -57,7 +57,7 @@ namespace SAPTeam.EasySign.CommandLine
         /// </param>
         public CommandProviderConfiguration(string[] protectedPrefixes)
         {
-            ProtectedPrefixes = ProtectedPrefixes.Union(protectedPrefixes).ToArray();
+            AddProtectedPrefix(protectedPrefixes);
         }
 
         /// <summary>
@@ -87,6 +87,34 @@ namespace SAPTeam.EasySign.CommandLine
         public bool IsProtected(string id)
         {
             return ProtectedPrefixes.Any(id.StartsWith);
+        }
+
+        /// <summary>
+        /// Adds given prefixes to the list of Protected ID Prefixes.
+        /// </summary>
+        /// <param name="prefixes">
+        /// The prefixes to add.
+        /// </param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public void AddProtectedPrefix(params string[] prefixes)
+        {
+            if (prefixes == null || prefixes.Length == 0)
+            {
+                throw new ArgumentNullException(nameof(prefixes), "Prefixes cannot be null or empty.");
+            }
+
+            ProtectedPrefixes = ProtectedPrefixes.Union(prefixes).ToArray();
+        }
+
+        /// <summary>
+        /// Adds the SAP Team certificates to the trusted root CA and intermediate CA stores and Locks the sapteam: prefix.
+        /// </summary>
+        public void AddSAPTeamCertificates()
+        {
+            AddProtectedPrefix("sapteam:");
+
+            TrustedRootCA["sapteam:rootca"] = SAPTeamCertificates.RootCA;
+            IntermediateCA["sapteam:packages"] = SAPTeamCertificates.PackagesIntermediateCA;
         }
 
         /// <summary>
