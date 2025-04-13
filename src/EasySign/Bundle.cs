@@ -394,7 +394,7 @@ namespace SAPTeam.EasySign
 
             if (Manifest.StoreOriginalFiles)
             {
-                Logger.LogDebug("Pending file: {name} for embedding in the bundle", name);
+                Logger.LogDebug("Pending file: {name} for adding tp the bundle", name);
                 _pendingForAdd[name] = File.ReadAllBytes(path);
             }
         }
