@@ -626,7 +626,7 @@ namespace SAPTeam.EasySign
         /// <param name="entryName">The name of the entry to get the stream for.</param>
         /// <param name="readSource">The source from which to read the data.</param>
         /// <returns>A read-only stream for the entry.</returns>
-        public Stream GetStream(string entryName, ReadSource readSource = ReadSource.Both)
+        public Stream GetStream(string entryName, ReadSource readSource = ReadSource.Automatic)
         {
             Ensure.String.IsNotNullOrEmpty(entryName.Trim(), nameof(entryName));
 
@@ -642,14 +642,11 @@ namespace SAPTeam.EasySign
                 Logger.LogDebug("Entry {name} not found in cache", entryName);
             }
                         
-            if (!CheckEntryNameSecurity(entryName, false))
-            {
-                readSource = ReadSource.Bundle;
-            }
+            readSource = GetReadSource(entryName, readSource);
 
             Stream stream;
 
-            if (readSource != ReadSource.Disk && (readSource == ReadSource.Bundle || Manifest.StoreOriginalFiles))
+            if (readSource == ReadSource.Bundle)
             {
                 Logger.LogDebug("Reading file: {name} from the bundle", entryName);
 
@@ -667,6 +664,71 @@ namespace SAPTeam.EasySign
             }
 
             return stream;
+        }
+
+        /// <summary>
+        /// Checks whether an entry exists in the bundle or on the disk.
+        /// </summary>
+        /// <param name="entryName">
+        /// The name of the entry to check.
+        /// </param>
+        /// <param name="readSource">
+        /// The source from which to check the entry.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> if the entry exists; otherwise, <see langword="false"/>.
+        /// </returns>
+        public bool Exists(string entryName, ReadSource readSource = ReadSource.Automatic)
+        {
+            Ensure.String.IsNotNullOrEmpty(entryName, nameof(entryName));
+
+            Logger.LogInformation("Checking if entry {entryName} exists", entryName);
+
+            bool result;
+            readSource = GetReadSource(entryName, readSource);
+
+            if (readSource == ReadSource.Bundle)
+            {
+                using ZipArchive zip = GetZipArchive();
+                result = zip.GetEntry(entryName) != null;
+            }
+            else
+            {
+                string path = Path.GetFullPath(entryName, RootPath);
+                result = File.Exists(path);
+            }
+
+            Logger.LogInformation("Entry {entryName} exists: {result}", entryName, result);
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the read source for an entry name.
+        /// </summary>
+        /// <param name="entryName">
+        /// The name of the entry to get the read source for.
+        /// </param>
+        /// <param name="readSource">
+        /// The suggested read source.
+        /// </param>
+        /// <returns>
+        /// The read source for the entry name based on protected entry names and bundle properties.
+        /// </returns>
+        protected ReadSource GetReadSource(string entryName, ReadSource readSource = ReadSource.Automatic)
+        {
+            Ensure.String.IsNotNullOrEmpty(entryName, nameof(entryName));
+
+            if (!CheckEntryNameSecurity(entryName, false))
+            {
+                readSource = ReadSource.Bundle;
+            }
+
+            if (readSource == ReadSource.Automatic)
+            {
+                readSource = Manifest.StoreOriginalFiles ? ReadSource.Bundle : ReadSource.Disk;
+            }
+
+            return readSource;
         }
 
         /// <summary>

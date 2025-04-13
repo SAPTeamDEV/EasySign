@@ -6,9 +6,12 @@
     public enum ReadSource
     {
         /// <summary>
-        /// Read from both the bundle and the disk.
+        /// Bundle decides the read source.
         /// </summary>
-        Both,
+        /// <remarks>
+        /// If the <see cref="Manifest.StoreOriginalFiles"/> property in the bundle is set to <see langword="true"/>, the data will be read from the bundle.
+        /// </remarks>
+        Automatic,
 
         /// <summary>
         /// Read from the bundle.
