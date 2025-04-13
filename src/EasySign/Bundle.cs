@@ -444,24 +444,20 @@ namespace SAPTeam.EasySign
             Logger.LogInformation("Signing bundle with certificate: {name}", certificate.Subject);
 
             Logger.LogDebug("Exporting certificate");
-            string cert = Convert.ToBase64String(certificate.Export(X509ContentType.Cert));
+            byte[] certData = certificate.Export(X509ContentType.Cert);
             string name = certificate.GetCertHashString();
-
-            StringBuilder pemBuilder = new StringBuilder();
-            pemBuilder.AppendLine("-----BEGIN CERTIFICATE-----");
-            pemBuilder.AppendLine(cert);
-            pemBuilder.AppendLine("-----END CERTIFICATE-----");
-            string pemContents = pemBuilder.ToString();
 
             Logger.LogDebug("Signing manifest");
             byte[] manifestData = GetManifestData();
             byte[] signature = privateKey.SignData(manifestData, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
 
-            Logger.LogDebug("Pending file: {name} for embedding in the bundle", name);
-            _pendingForAdd[name] = Encoding.UTF8.GetBytes(pemContents);
+            Logger.LogDebug("Pending file: {name} for adding to the bundle", name);
+            _pendingForAdd[name] = certData;
 
             Logger.LogDebug("Adding signature for certificate: {name} to signatures", name);
             Signatures.Entries[name] = signature;
+
+            Logger.LogInformation("Bundle signed with certificate: {name}", certificate.Subject);
         }
 
         /// <summary>
